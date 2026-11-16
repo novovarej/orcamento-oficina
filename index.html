@@ -3,359 +3,389 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Orçamento Rápido — Oficina</title>
+<meta name="theme-color" content="#1c1f26">
+<title>Orçamento por Vídeo</title>
 <style>
-  :root{--bg:#f4f5f7;--card:#fff;--ink:#1d2330;--mut:#6b7280;--line:#e3e6ea;--pri:#1f6feb;--ok:#1a7f37;--wa:#25d366;--warn:#b42318}
-  *{box-sizing:border-box}
-  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
-  header{background:var(--ink);color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-  header h1{font-size:18px;margin:0}
-  header .acts{display:flex;gap:8px;flex-wrap:wrap}
-  main{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px;padding:16px;max-width:1400px;margin:0 auto}
-  @media(max-width:900px){main{grid-template-columns:1fr}}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}
-  .card h2{font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin:0 0 10px}
-  .row{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:8px}
-  label{font-size:12px;color:var(--mut);display:block;margin-bottom:3px}
-  input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font:inherit;background:#fff}
-  input:focus,select:focus,textarea:focus{outline:2px solid var(--pri);border-color:transparent}
-  textarea{min-height:60px;resize:vertical}
-  button{font:inherit;border:0;border-radius:7px;padding:8px 14px;cursor:pointer;background:#e9ecef;color:var(--ink)}
-  button.pri{background:var(--pri);color:#fff}
-  button.wa{background:var(--wa);color:#08361a;font-weight:600}
-  button.ghost{background:transparent;color:#fff;border:1px solid #ffffff55}
-  button.del{background:transparent;color:var(--warn);padding:4px 8px;font-size:18px;line-height:1}
-  table.items{width:100%;border-collapse:collapse}
-  table.items th{font-size:12px;color:var(--mut);text-align:left;font-weight:500;padding:4px}
-  table.items td{padding:3px 4px;vertical-align:middle}
-  table.items td.num{width:80px}
-  table.items td.val{width:110px}
-  table.items td.tot{width:100px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-  table.items td.tipo{width:105px}
-  .addbar{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-  .hint{font-size:12px;color:var(--mut);margin-top:6px}
-  /* Pré-visualização / documento */
-  .doc{background:#fff;border:1px solid var(--line);border-radius:10px;padding:28px 30px;font-size:13px;position:sticky;top:12px}
-  .doc .top{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:12px}
-  .doc .shop{font-size:18px;font-weight:700}
-  .doc .small{color:var(--mut);font-size:12px;line-height:1.45}
-  .doc .num{text-align:right}
-  .doc .num b{font-size:16px}
-  .doc .info{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;margin-bottom:12px}
-  .doc table{width:100%;border-collapse:collapse;margin-bottom:8px}
-  .doc th{background:#f0f2f5;text-align:left;padding:6px;font-size:12px}
-  .doc td{padding:6px;border-bottom:1px solid var(--line)}
-  .doc td.r,.doc th.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-  .doc .sec{font-weight:600;margin:10px 0 4px}
-  .doc .totals{margin-left:auto;width:260px}
-  .doc .totals div{display:flex;justify-content:space-between;padding:3px 0}
-  .doc .totals .g{border-top:2px solid var(--ink);font-size:16px;font-weight:700;padding-top:6px;margin-top:4px}
-  .doc .obs{margin-top:14px;white-space:pre-wrap}
-  .doc .sign{margin-top:40px;display:flex;gap:30px}
-  .doc .sign div{flex:1;border-top:1px solid var(--ink);text-align:center;padding-top:4px;font-size:12px}
-  .empty{color:var(--mut);font-style:italic;padding:8px 0}
-  /* Modais */
-  dialog{border:0;border-radius:12px;padding:0;max-width:640px;width:94%}
-  dialog .in{padding:18px 20px}
-  dialog h3{margin:0 0 12px}
-  dialog .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
-  .hist{max-height:55vh;overflow:auto}
-  .hist div{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);gap:10px}
-  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none}
-  .toast.on{opacity:1}
-  @media print{
-    @page{size:A4;margin:12mm}
-    body{background:#fff}
-    header,.form,.toast,dialog{display:none!important}
-    main{display:block;padding:0}
-    .doc{border:0;padding:0;position:static}
-  }
+:root{--bg:#f2f3f5;--card:#fff;--ink:#1c1f26;--mut:#6b7280;--line:#e2e5ea;--pri:#f26b1d;--ok:#1a7f37;--wa:#1fae55;--warn:#c62828;--amb:#b26a00}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:40px}
+header{background:var(--ink);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;position:sticky;top:0;z-index:5}
+header h1{font-size:18px;margin:0}
+header .acts{display:flex;gap:6px}
+header button{background:#2e333d;color:#fff;border:0;border-radius:10px;padding:8px 12px;font-size:14px}
+main{max-width:640px;margin:0 auto;padding:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.card h2{font-size:16px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.n{background:var(--pri);color:#fff;border-radius:50%;width:24px;height:24px;display:inline-grid;place-items:center;font-size:13px;flex:none}
+label{display:block;font-size:13px;color:var(--mut);margin:8px 0 3px}
+input,select,textarea{width:100%;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+textarea{min-height:70px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{display:block;width:100%;border:0;border-radius:12px;padding:14px;font:600 16px system-ui,sans-serif;margin-top:10px;cursor:pointer;background:#e7e9ee;color:var(--ink)}
+.btn.pri{background:var(--pri);color:#fff}.btn.wa{background:var(--wa);color:#fff}.btn.ok{background:var(--ok);color:#fff}
+.btn:disabled{opacity:.5}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}.two .btn{margin-top:0}
+.veic{padding:10px 12px;border-radius:10px;background:#fff4ec;border:1px solid #ffd3b5;font-size:15px}
+.veic b{font-size:16px}
+.mut{color:var(--mut);font-size:13px}
+video{width:100%;max-height:340px;border-radius:12px;background:#000;margin-top:10px}
+.prog{margin-top:10px;font-size:14px}.prog div{padding:3px 0}.prog .on{font-weight:600}.prog .ok{color:var(--ok)}.prog .err{color:var(--warn);font-weight:600}
+.item{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px}
+.item .top{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start}
+.item .desc{font-weight:600}
+.item .mot{font-size:13px;color:var(--mut);margin-top:2px}
+.item .g{display:grid;grid-template-columns:70px 1fr 1.2fr;gap:6px;margin-top:8px}
+.item .g input,.item .g select{padding:8px;font-size:15px}
+.item.semp{border-color:var(--warn);background:#fff5f5}
+.x{background:none;border:0;color:var(--warn);font-size:20px;padding:0 4px}
+.tag{font-size:12px;border-radius:20px;padding:2px 8px;white-space:nowrap}
+.t-urgente{background:#fde2e2;color:var(--warn)}.t-recomendado{background:#fff1d6;color:var(--amb)}.t-pode{background:#e3f4e6;color:var(--ok)}
+.tot{display:flex;justify-content:space-between;font-size:20px;font-weight:700;margin-top:10px;padding-top:10px;border-top:2px solid var(--ink)}
+.alerta{background:#fff1d6;border-radius:10px;padding:8px 10px;font-size:14px;margin-bottom:8px}
+details{margin-top:8px}summary{cursor:pointer;color:var(--mut);font-size:14px}
+pre{white-space:pre-wrap;font:14px/1.4 system-ui,sans-serif;background:#f6f7f9;padding:10px;border-radius:10px;margin:6px 0 0}
+dialog{border:0;border-radius:16px;padding:0;width:min(560px,94vw);max-height:90vh}
+dialog .in{padding:16px;overflow:auto;max-height:90vh}
+dialog h3{margin:0 0 6px}
+.hist{padding:10px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px;align-items:center}
+.hist button{border:0;background:#e7e9ee;border-radius:8px;padding:8px 10px}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;opacity:0;transition:.2s;pointer-events:none;z-index:50;max-width:90vw;text-align:center}
+#toast.on{opacity:1}
+.hide{display:none}
 </style>
 </head>
 <body>
 <header>
-  <h1>🔧 Orçamento Rápido</h1>
-  <div class="acts">
-    <button class="ghost" onclick="novo()">+ Novo</button>
-    <button class="ghost" onclick="abrirHist()">Histórico</button>
-    <button class="ghost" onclick="abrirCfg()">Dados da oficina</button>
-  </div>
+  <h1>🎥 Orçamento por Vídeo</h1>
+  <div class="acts"><button id="bHist">Histórico</button><button id="bCfg">⚙️</button></div>
 </header>
-
 <main>
-  <section class="form">
-    <div class="card">
-      <h2>Cliente e veículo</h2>
-      <div class="row">
-        <div><label>Cliente</label><input id="cliente" placeholder="Nome do cliente"></div>
-        <div><label>WhatsApp</label><input id="fone" placeholder="(14) 99999-9999" inputmode="tel"></div>
-      </div>
-      <div class="row">
-        <div><label>Veículo</label><input id="veiculo" placeholder="Ex.: Gol 1.6 2015"></div>
-        <div><label>Placa</label><input id="placa" placeholder="ABC1D23" style="text-transform:uppercase"></div>
-        <div><label>KM</label><input id="km" inputmode="numeric" placeholder="85.000"></div>
-      </div>
-      <div class="row">
-        <div><label>Problema relatado / diagnóstico</label><input id="problema" placeholder="Ex.: barulho na suspensão dianteira"></div>
-      </div>
-    </div>
+  <div class="card" id="avisoCfg" hidden>
+    <b>Primeiro uso:</b> toque em ⚙️ e preencha os dados da oficina e a chave da IA.
+  </div>
 
-    <div class="card">
-      <h2>Peças e serviços</h2>
-      <table class="items">
-        <thead><tr><th>Tipo</th><th>Descrição</th><th>Qtd</th><th>Valor un.</th><th class="r">Total</th><th></th></tr></thead>
-        <tbody id="itens"></tbody>
-      </table>
-      <div class="addbar">
-        <button class="pri" onclick="addItem('Peça')">+ Peça</button>
-        <button class="pri" onclick="addItem('Serviço')">+ Serviço</button>
-      </div>
-      <div class="hint">Comece a digitar a descrição: os itens que você já usou aparecem com o último preço. Enter na última linha cria outra.</div>
-      <datalist id="catalogo"></datalist>
-    </div>
-
-    <div class="card">
-      <h2>Condições</h2>
-      <div class="row">
-        <div><label>Desconto</label><input id="desc" inputmode="decimal" placeholder="0"></div>
-        <div><label>Tipo de desconto</label><select id="descTipo"><option value="R$">R$</option><option value="%">%</option></select></div>
-        <div><label>Validade (dias)</label><input id="validade" inputmode="numeric" value="7"></div>
-        <div><label>Prazo de execução</label><input id="prazo" placeholder="Ex.: 2 dias úteis"></div>
-      </div>
-      <div class="row">
-        <div><label>Forma de pagamento</label><input id="pagto" placeholder="Pix, cartão em até 3x…"></div>
-        <div><label>Garantia</label><input id="garantia" placeholder="Ex.: 90 dias peças e serviço"></div>
-      </div>
-      <div><label>Observações</label><textarea id="obs" placeholder="Informações adicionais para o cliente"></textarea></div>
-    </div>
-
-    <div class="card" style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="wa" onclick="enviarWhats()">📲 Enviar no WhatsApp</button>
-      <button class="pri" onclick="imprimir()">🖨️ PDF / Imprimir</button>
-      <button onclick="salvar(true)">💾 Salvar</button>
-      <button onclick="copiarTexto()">📋 Copiar texto</button>
-    </div>
+  <section class="card">
+    <h2><span class="n">1</span>Veículo</h2>
+    <select id="selVeic"></select>
+    <div id="veicInfo" class="veic hide" style="margin-top:8px"></div>
+    <div class="two" style="margin-top:8px"><button class="btn" id="bNovoVeic">+ Cadastrar veículo</button><button class="btn" id="bEditVeic">Editar</button></div>
   </section>
 
-  <section>
-    <div class="doc" id="doc"></div>
+  <section class="card">
+    <h2><span class="n">2</span>Vídeo do mecânico</h2>
+    <div class="mut">Grave mostrando o problema e <b>falando</b> o que precisa trocar ou fazer.</div>
+    <div class="two" style="margin-top:10px">
+      <button class="btn pri" id="bGravar">📹 Gravar</button>
+      <button class="btn" id="bGaleria">📁 Galeria</button>
+    </div>
+    <input type="file" id="fGravar" accept="video/*" capture="environment" hidden>
+    <input type="file" id="fGaleria" accept="video/*" hidden>
+    <video id="prev" class="hide" controls playsinline></video>
+    <div id="vidInfo" class="mut"></div>
+    <button class="btn ok" id="bAnalisar" disabled>✨ Montar orçamento com IA</button>
+    <div class="prog" id="prog"></div>
+  </section>
+
+  <section class="card hide" id="secOrc">
+    <h2><span class="n">3</span>Orçamento <span class="mut" id="numOrc"></span></h2>
+    <div id="alertas"></div>
+    <label>O que encontramos (vai para o cliente)</label>
+    <textarea id="resumo"></textarea>
+    <label>Itens</label>
+    <div id="itens"></div>
+    <div class="two"><button class="btn" id="bAddPeca">+ Peça</button><button class="btn" id="bAddServ">+ Serviço</button></div>
+    <div class="tot"><span>Total</span><span id="total">R$ 0,00</span></div>
+    <div class="row">
+      <div><label>Validade (dias)</label><input id="validade" inputmode="numeric" value="7"></div>
+      <div><label>Prazo do serviço</label><input id="prazo" placeholder="ex.: 1 dia"></div>
+    </div>
+    <details><summary>O que o mecânico falou (transcrição)</summary><pre id="transc"></pre></details>
+  </section>
+
+  <section class="card hide" id="secEnv">
+    <h2><span class="n">4</span>Enviar ao cliente</h2>
+    <button class="btn wa" id="bEnvVideo">📲 Enviar vídeo + orçamento</button>
+    <button class="btn" id="bEnvTexto">💬 Só o texto no WhatsApp do cliente</button>
+    <div class="two" style="margin-top:10px"><button class="btn" id="bCopiar">Copiar texto</button><button class="btn" id="bSalvar">Salvar</button></div>
+    <details><summary>Ver mensagem</summary><pre id="msgPrev"></pre></details>
   </section>
 </main>
 
-<dialog id="dlgCfg"><div class="in">
-  <h3>Dados da oficina</h3>
-  <div class="row"><div><label>Nome da oficina</label><input id="cNome"></div><div><label>CNPJ</label><input id="cCnpj"></div></div>
-  <div class="row"><div><label>Telefone / WhatsApp</label><input id="cFone"></div><div><label>Responsável</label><input id="cResp"></div></div>
-  <div class="row"><div><label>Endereço</label><input id="cEnd"></div></div>
-  <div class="row"><div><label>Próximo número de orçamento</label><input id="cNum" inputmode="numeric"></div></div>
-  <div class="foot"><button onclick="dlgCfg.close()">Cancelar</button><button class="pri" onclick="salvarCfg()">Salvar</button></div>
+<dialog id="dVeic"><div class="in">
+  <h3 id="dVeicTit">Cadastrar veículo</h3>
+  <label>Nome do cliente</label><input id="vNome">
+  <label>WhatsApp do cliente</label><input id="vFone" inputmode="tel" placeholder="(14) 99999-9999">
+  <div class="row"><div><label>Placa</label><input id="vPlaca" style="text-transform:uppercase"></div><div><label>Ano</label><input id="vAno" inputmode="numeric"></div></div>
+  <label>Modelo</label><input id="vModelo" placeholder="ex.: Honda CR-V EXL">
+  <label>KM (opcional)</label><input id="vKm" inputmode="numeric">
+  <div class="two" style="margin-top:12px"><button class="btn" id="bVeicCanc">Cancelar</button><button class="btn pri" id="bVeicOk">Salvar</button></div>
 </div></dialog>
 
-<dialog id="dlgHist"><div class="in">
-  <h3>Orçamentos salvos</h3>
-  <input id="busca" placeholder="Buscar por cliente, placa ou veículo" oninput="renderHist()" style="margin-bottom:8px">
-  <div class="hist" id="histList"></div>
-  <div class="foot"><button onclick="dlgHist.close()">Fechar</button></div>
+<dialog id="dCfg"><div class="in">
+  <h3>Configurações</h3>
+  <label>Nome da oficina</label><input id="cNome">
+  <div class="row"><div><label>Telefone</label><input id="cFone" inputmode="tel"></div><div><label>CNPJ</label><input id="cCnpj"></div></div>
+  <label>Endereço</label><input id="cEnd">
+  <label>Próximo nº de orçamento</label><input id="cNum" inputmode="numeric">
+  <label>Chave da IA (Google Gemini)</label><input id="cKey" type="password" autocomplete="off" placeholder="AIza...">
+  <div class="mut">Crie grátis em aistudio.google.com → "Get API key". Fica guardada só neste aparelho.</div>
+  <label>Modelo da IA</label><input id="cModelo">
+  <label>Tabela de preços (uma por linha: descrição ; valor)</label>
+  <textarea id="cCat" style="min-height:160px" placeholder="Amortecedor dianteiro ; 450,00&#10;Mão de obra troca de amortecedor (par) ; 250,00&#10;Alinhamento ; 100,00"></textarea>
+  <div class="mut">Os preços que você corrigir nos orçamentos entram aqui sozinhos.</div>
+  <div class="two" style="margin-top:12px"><button class="btn" id="bCfgCanc">Fechar</button><button class="btn pri" id="bCfgOk">Salvar</button></div>
 </div></dialog>
 
-<div class="toast" id="toast"></div>
+<dialog id="dHist"><div class="in">
+  <h3>Histórico</h3>
+  <div id="histLista"></div>
+  <button class="btn" id="bHistFechar">Fechar</button>
+</div></dialog>
+
+<div id="toast"></div>
 
 <script>
-/* ---------- armazenamento local (protegido) ---------- */
-const store={
-  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
-  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
-};
-let cfg=store.get('oo_cfg',{nome:'Sua Oficina',cnpj:'',fone:'',resp:'',end:'',num:1});
-let catalogo=store.get('oo_cat',{});      // descrição -> {tipo, valor}
-let historico=store.get('oo_hist',[]);
-let atual=null;                            // orçamento em edição
-
+{
 const $=id=>document.getElementById(id);
-const brl=v=>(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-const num=s=>{if(typeof s==='number')return s;s=String(s||'').trim();if(!s)return 0;s=s.replace(/[^\d,.-]/g,'');if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');return parseFloat(s)||0};
+const S={get(k,d){try{const v=localStorage.getItem('orv_'+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem('orv_'+k,JSON.stringify(v))}catch(e){toast('Memória cheia no aparelho')}}};
+const brl=v=>(Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const num=s=>{s=String(s??'').replace(/[R$\s]/g,'');if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');return parseFloat(s)||0};
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const hoje=()=>new Date().toLocaleDateString('pt-BR');
-function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),2200)}
+const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),2600)}
 
-const campos=['cliente','fone','veiculo','placa','km','problema','desc','descTipo','validade','prazo','pagto','garantia','obs'];
+let cfg=S.get('cfg',{nome:'',fone:'',cnpj:'',end:'',num:1,key:'',modelo:'gemini-3.8-flash'});
+let veics=S.get('veics',[]);
+let cat=S.get('cat',[]); // [{desc,valor}]
+let hist=S.get('hist',[]);
+let video=null, atual=null; // atual = orçamento em edição
 
-/* ---------- itens ---------- */
-function addItem(tipo,d={},foco=true){
-  const tr=document.createElement('tr');
-  tr.innerHTML=`<td class="tipo"><select class="it-tipo"><option>Peça</option><option>Serviço</option></select></td>
-  <td><input class="it-desc" list="catalogo" placeholder="${tipo==='Serviço'?'Ex.: Troca de pastilhas':'Ex.: Pastilha de freio dianteira'}"></td>
-  <td class="num"><input class="it-qtd" inputmode="decimal" value="1"></td>
-  <td class="val"><input class="it-val" inputmode="decimal" placeholder="0,00"></td>
-  <td class="tot">R$ 0,00</td>
-  <td><button class="del" title="Remover">×</button></td>`;
-  tr.querySelector('.it-tipo').value=d.tipo||tipo;
-  tr.querySelector('.it-desc').value=d.desc||'';
-  tr.querySelector('.it-qtd').value=d.qtd??1;
-  tr.querySelector('.it-val').value=d.valor?String(d.valor).replace('.',','):'';
-  tr.querySelector('.del').onclick=()=>{tr.remove();atualizar()};
-  tr.querySelector('.it-desc').addEventListener('change',e=>{
-    const c=catalogo[e.target.value.trim().toLowerCase()];
-    if(c){tr.querySelector('.it-tipo').value=c.tipo; if(!num(tr.querySelector('.it-val').value))tr.querySelector('.it-val').value=String(c.valor).replace('.',',');atualizar()}
-  });
-  tr.querySelectorAll('input').forEach(i=>i.addEventListener('keydown',e=>{
-    if(e.key==='Enter'){e.preventDefault(); if(tr===$('itens').lastElementChild) addItem(tr.querySelector('.it-tipo').value); else tr.nextElementSibling.querySelector('.it-desc').focus()}
-  }));
-  $('itens').appendChild(tr);
-  if(foco)tr.querySelector('.it-desc').focus();
+/* ---------- Veículos ---------- */
+function renderVeics(sel){
+  const s=$('selVeic');
+  s.innerHTML='<option value="">— escolha o veículo —</option>'+veics.slice().reverse().map(v=>`<option value="${v.id}">${esc(v.placa)} · ${esc(v.modelo)} · ${esc(v.nome)}</option>`).join('');
+  if(sel!==undefined)s.value=sel;
+  mostrarVeic();
+}
+const veicAtual=()=>veics.find(v=>v.id===$('selVeic').value);
+function mostrarVeic(){
+  const v=veicAtual(),b=$('veicInfo');
+  b.classList.toggle('hide',!v);$('bEditVeic').disabled=!v;
+  if(v)b.innerHTML=`<b>${esc(v.modelo)} ${esc(v.ano)}</b> · ${esc(v.placa)}${v.km?' · '+esc(v.km)+' km':''}<br>${esc(v.nome)} · ${esc(v.fone)}`;
+  podeAnalisar();
+}
+let editVeicId=null;
+function abrirVeic(v){
+  editVeicId=v?v.id:null;$('dVeicTit').textContent=v?'Editar veículo':'Cadastrar veículo';
+  for(const k of['nome','fone','placa','ano','modelo','km'])$('v'+k[0].toUpperCase()+k.slice(1)).value=v?v[k]||'':'';
+  $('dVeic').showModal();
+}
+function salvarVeic(){
+  const g=k=>$('v'+k).value.trim();
+  const v={id:editVeicId||String(Date.now()),nome:g('Nome'),fone:g('Fone'),placa:g('Placa').toUpperCase(),ano:g('Ano'),modelo:g('Modelo'),km:g('Km')};
+  if(!v.placa||!v.modelo)return toast('Preencha pelo menos placa e modelo');
+  const i=veics.findIndex(x=>x.id===v.id);if(i>=0)veics[i]=v;else veics.push(v);
+  S.set('veics',veics);$('dVeic').close();renderVeics(v.id);
+}
+
+/* ---------- Vídeo ---------- */
+function pegarVideo(f){
+  if(!f)return;video=f;
+  const p=$('prev');p.src=URL.createObjectURL(f);p.classList.remove('hide');
+  $('vidInfo').textContent=`${(f.size/1048576).toFixed(1)} MB`;
+  $('prog').innerHTML='';podeAnalisar();
+}
+function podeAnalisar(){$('bAnalisar').disabled=!(video&&veicAtual())}
+
+/* ---------- IA (Google Gemini) ---------- */
+const API='https://generativelanguage.googleapis.com';
+const etapas=[];
+function etapa(t,cls='on'){etapas.forEach(e=>e.cls==='on'&&(e.cls='ok'));etapas.push({t,cls});$('prog').innerHTML=etapas.map(e=>`<div class="${e.cls}">${e.cls==='ok'?'✓':e.cls==='err'?'✗':'…'} ${esc(e.t)}</div>`).join('')}
+const b64=blob=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(blob)});
+const espera=ms=>new Promise(r=>setTimeout(r,ms));
+
+async function enviarArquivo(blob,mime){
+  const ini=await fetch(`${API}/upload/v1beta/files?key=${encodeURIComponent(cfg.key)}`,{method:'POST',headers:{'X-Goog-Upload-Protocol':'resumable','X-Goog-Upload-Command':'start','X-Goog-Upload-Header-Content-Length':String(blob.size),'X-Goog-Upload-Header-Content-Type':mime,'Content-Type':'application/json'},body:JSON.stringify({file:{display_name:'orcamento-video'}})});
+  if(!ini.ok)throw new Error('Falha ao enviar o vídeo ('+ini.status+')');
+  const url=ini.headers.get('x-goog-upload-url');
+  if(!url)throw new Error('Vídeo grande demais para este aparelho. Grave um vídeo mais curto (até 1 minuto).');
+  const up=await fetch(url,{method:'POST',headers:{'X-Goog-Upload-Offset':'0','X-Goog-Upload-Command':'upload, finalize'},body:blob});
+  if(!up.ok)throw new Error('Falha ao enviar o vídeo ('+up.status+')');
+  let f=(await up.json()).file;
+  for(let i=0;i<60&&f.state!=='ACTIVE';i++){
+    if(f.state==='FAILED')throw new Error('A IA não conseguiu ler o vídeo');
+    await espera(2000);
+    f=await(await fetch(`${API}/v1beta/${f.name}?key=${encodeURIComponent(cfg.key)}`)).json();
+  }
+  return {file_data:{mime_type:mime,file_uri:f.uri}};
+}
+
+function prompt(v){
+  const tabela=cat.length?cat.map((c,i)=>`${i}: ${c.desc}`).join('\n'):'(vazia)';
+  return `Você é o orçamentista de uma oficina mecânica no Brasil.
+O vídeo foi gravado pelo mecânico mostrando o veículo e FALANDO o que encontrou e o que precisa ser feito.
+
+Veículo: ${v.modelo} ${v.ano} — placa ${v.placa}${v.km?` — ${v.km} km`:''}.
+
+Tabela de preços da oficina (número: descrição):
+${tabela}
+
+Tarefas:
+1. Transcreva fielmente, em português, tudo o que o mecânico fala.
+2. Liste os itens do orçamento: peças e serviços (mão de obra) necessários. Separe peça e mão de obra em itens diferentes. Use quantidade correta (ex.: amortecedores costumam ser trocados em par).
+3. Para cada item, se houver um item equivalente na tabela, informe o número em "tabela_id"; se não houver, use -1. Use a descrição da tabela quando houver correspondência.
+4. Prioridade: "urgente" (segurança ou pode piorar logo), "recomendado" ou "pode esperar".
+5. "motivo": frase curta com o que foi visto/falado. Se algo só aparece na imagem e o mecânico não falou, escreva "visto no vídeo, confirmar".
+6. "resumo_cliente": 2 a 4 frases simples, para o dono do carro entender o que foi encontrado, sem termos técnicos difíceis.
+7. "alertas": dúvidas que o balconista precisa confirmar antes de enviar (ex.: lado do carro, marca da peça, item não claro no áudio). Lista vazia se não houver.
+Não invente defeitos. Não informe preços.`;
+}
+const esquema={type:'OBJECT',properties:{
+  transcricao:{type:'STRING'},resumo_cliente:{type:'STRING'},
+  itens:{type:'ARRAY',items:{type:'OBJECT',properties:{tipo:{type:'STRING',enum:['peca','servico']},descricao:{type:'STRING'},quantidade:{type:'NUMBER'},prioridade:{type:'STRING',enum:['urgente','recomendado','pode esperar']},motivo:{type:'STRING'},tabela_id:{type:'INTEGER'}},required:['tipo','descricao','quantidade','prioridade','motivo','tabela_id']}},
+  alertas:{type:'ARRAY',items:{type:'STRING'}}},
+  required:['transcricao','resumo_cliente','itens','alertas']};
+
+async function analisar(){
+  if(!cfg.key){toast('Coloque a chave da IA em ⚙️');return $('dCfg').showModal()}
+  const v=veicAtual();if(!v||!video)return;
+  etapas.length=0;$('bAnalisar').disabled=true;
+  try{
+    const mime=video.type||'video/mp4';
+    let parte;
+    if(video.size<=14*1048576){etapa('Preparando o vídeo');parte={inline_data:{mime_type:mime,data:await b64(video)}}}
+    else{etapa('Enviando o vídeo ('+(video.size/1048576).toFixed(0)+' MB)');parte=await enviarArquivo(video,mime)}
+    etapa('A IA está assistindo e ouvindo o vídeo');
+    const r=await fetch(`${API}/v1beta/models/${encodeURIComponent(cfg.modelo||'gemini-3.8-flash')}:generateContent?key=${encodeURIComponent(cfg.key)}`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{parts:[parte,{text:prompt(v)}]}],generationConfig:{responseMimeType:'application/json',responseSchema:esquema,temperature:0.2}})});
+    const j=await r.json();
+    if(!r.ok)throw new Error(j.error?.message||('Erro da IA ('+r.status+')'));
+    const txt=j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
+    const res=JSON.parse(txt);
+    etapa('Orçamento montado');etapa('Confira os itens e os preços abaixo','ok');
+    montar(res,v);
+  }catch(e){etapa(e.message||String(e),'err')}
+  finally{podeAnalisar()}
+}
+
+/* ---------- Orçamento ---------- */
+function precoDe(desc,id){
+  if(id>=0&&cat[id])return{desc:cat[id].desc,valor:cat[id].valor};
+  const n=norm(desc),c=cat.find(c=>norm(c.desc)===n);
+  return c?{desc:c.desc,valor:c.valor}:{desc,valor:0};
+}
+function montar(res,v){
+  atual={num:cfg.num,data:new Date().toISOString(),veic:{...v},resumo:res.resumo_cliente||'',transcricao:res.transcricao||'',alertas:res.alertas||[],
+    itens:(res.itens||[]).map(i=>{const p=precoDe(i.descricao,i.tabela_id);return{tipo:i.tipo,desc:p.desc,qtd:i.quantidade||1,valor:p.valor,prio:i.prioridade,motivo:i.motivo}}),
+    validade:7,prazo:''};
+  mostrarOrc();
+}
+function mostrarOrc(){
+  const o=atual;
+  $('secOrc').classList.remove('hide');$('secEnv').classList.remove('hide');
+  $('numOrc').textContent='nº '+o.num;
+  $('resumo').value=o.resumo;$('transc').textContent=o.transcricao||'—';
+  $('validade').value=o.validade;$('prazo').value=o.prazo;
+  renderItens();
+  $('secOrc').scrollIntoView({behavior:'smooth'});
+}
+function renderItens(){
+  $('itens').innerHTML=atual.itens.map((i,k)=>`<div class="item ${i.valor?'':'semp'}" data-k="${k}">
+    <div class="top"><div><input data-f="desc" value="${esc(i.desc)}" style="font-weight:600;border:0;padding:0">${i.motivo?`<div class="mot">${esc(i.motivo)}</div>`:''}</div><button class="x" data-del="${k}" aria-label="Remover">×</button></div>
+    <div class="g"><input data-f="qtd" inputmode="decimal" value="${String(i.qtd).replace('.',',')}" aria-label="Quantidade">
+    <input data-f="valor" inputmode="decimal" value="${i.valor?String(i.valor.toFixed(2)).replace('.',','):''}" placeholder="Valor un." aria-label="Valor unitário">
+    <select data-f="prio" aria-label="Prioridade">${['urgente','recomendado','pode esperar'].map(p=>`<option ${p===i.prio?'selected':''}>${p}</option>`).join('')}</select></div></div>`).join('')||'<div class="mut">Nenhum item. Adicione abaixo.</div>';
   atualizar();
 }
-function lerItens(){
-  return [...$('itens').children].map(tr=>({
-    tipo:tr.querySelector('.it-tipo').value,
-    desc:tr.querySelector('.it-desc').value.trim(),
-    qtd:num(tr.querySelector('.it-qtd').value)||0,
-    valor:num(tr.querySelector('.it-val').value)
-  })).filter(i=>i.desc||i.valor);
-}
-
-/* ---------- cálculo e documento ---------- */
-function dados(){
-  const o={};campos.forEach(c=>o[c]=$(c).value);
-  o.itens=lerItens();
-  o.pecas=o.itens.filter(i=>i.tipo==='Peça').reduce((s,i)=>s+i.qtd*i.valor,0);
-  o.servicos=o.itens.filter(i=>i.tipo==='Serviço').reduce((s,i)=>s+i.qtd*i.valor,0);
-  o.subtotal=o.pecas+o.servicos;
-  const d=num(o.desc);
-  o.desconto=Math.min(o.subtotal,o.descTipo==='%'?o.subtotal*d/100:d);
-  o.total=o.subtotal-o.desconto;
-  o.numero=atual?.numero??cfg.num;
-  o.data=atual?.data??hoje();
-  return o;
-}
 function atualizar(){
-  [...$('itens').children].forEach(tr=>{
-    tr.querySelector('.tot').textContent=brl(num(tr.querySelector('.it-qtd').value)*num(tr.querySelector('.it-val').value));
-  });
-  renderDoc(dados());
+  if(!atual)return;
+  atual.resumo=$('resumo').value;atual.validade=$('validade').value;atual.prazo=$('prazo').value;
+  $('total').textContent=brl(total());$('msgPrev').textContent=texto();
+  const semp=atual.itens.filter(i=>!i.valor).length;
+  $('alertas').innerHTML=[...atual.alertas,...(semp?[`${semp} item(ns) sem preço na tabela — preencha o valor.`]:[])].map(a=>`<div class="alerta">⚠️ ${esc(a)}</div>`).join('');
 }
-function tabela(lista){
-  if(!lista.length)return'';
-  return `<table><thead><tr><th>Descrição</th><th class="r">Qtd</th><th class="r">Valor un.</th><th class="r">Total</th></tr></thead><tbody>${
-    lista.map(i=>`<tr><td>${esc(i.desc)}</td><td class="r">${i.qtd.toLocaleString('pt-BR')}</td><td class="r">${brl(i.valor)}</td><td class="r">${brl(i.qtd*i.valor)}</td></tr>`).join('')
-  }</tbody></table>`;
+const total=()=>atual.itens.reduce((s,i)=>s+i.qtd*i.valor,0);
+const ico={urgente:'🔴',recomendado:'🟡','pode esperar':'🟢'};
+function texto(){
+  const o=atual,v=o.veic,linhas=[];
+  linhas.push(`*${cfg.nome||'Oficina'}*`);
+  linhas.push(`Orçamento nº ${o.num} — ${new Date(o.data).toLocaleDateString('pt-BR')}`);
+  linhas.push(`Olá${v.nome?' '+v.nome.split(' ')[0]:''}! Segue o orçamento do seu *${v.modelo} ${v.ano}* (${v.placa}).`,'');
+  if(o.resumo.trim())linhas.push('🔎 *O que encontramos*',o.resumo.trim(),'');
+  linhas.push('🔧 *Itens*');
+  for(const p of['urgente','recomendado','pode esperar'])for(const i of o.itens.filter(i=>i.prio===p))
+    linhas.push(`${ico[p]} ${i.desc}${i.qtd!==1?` (${String(i.qtd).replace('.',',')}x)`:''} — ${brl(i.qtd*i.valor)}`);
+  linhas.push('',`*Total: ${brl(total())}*`);
+  if(o.itens.some(i=>i.prio!=='urgente'))linhas.push('🔴 urgente · 🟡 recomendado · 🟢 pode esperar');
+  if(o.prazo)linhas.push(`Prazo: ${o.prazo}`);
+  linhas.push(`Validade: ${o.validade||7} dias`,'','Responda *SIM* para aprovar ou chame para tirar dúvidas.');
+  if(cfg.fone||cfg.end)linhas.push(`${cfg.fone||''}${cfg.fone&&cfg.end?' · ':''}${cfg.end||''}`);
+  return linhas.join('\n');
 }
-function renderDoc(o){
-  const pecas=o.itens.filter(i=>i.tipo==='Peça'), serv=o.itens.filter(i=>i.tipo==='Serviço');
-  const linhaInfo=(r,v)=>v?`<div><span class="small">${r}:</span> ${esc(v)}</div>`:'';
-  const cond=[['Validade',o.validade?o.validade+' dias':''],['Prazo de execução',o.prazo],['Pagamento',o.pagto],['Garantia',o.garantia]].filter(x=>x[1]);
-  $('doc').innerHTML=`
-  <div class="top">
-    <div><div class="shop">${esc(cfg.nome)}</div>
-      <div class="small">${[cfg.cnpj&&'CNPJ '+cfg.cnpj,cfg.end,cfg.fone].filter(Boolean).map(esc).join('<br>')}</div></div>
-    <div class="num"><div class="small">ORÇAMENTO</div><b>Nº ${String(o.numero).padStart(4,'0')}</b><div class="small">${o.data}</div></div>
-  </div>
-  <div class="info">
-    ${linhaInfo('Cliente',o.cliente)}${linhaInfo('Telefone',o.fone)}
-    ${linhaInfo('Veículo',o.veiculo)}${linhaInfo('Placa',o.placa.toUpperCase())}
-    ${linhaInfo('KM',o.km)}${linhaInfo('Relato',o.problema)}
-  </div>
-  ${o.itens.length?'':'<div class="empty">Adicione peças e serviços ao lado para montar o orçamento.</div>'}
-  ${pecas.length?'<div class="sec">Peças</div>'+tabela(pecas):''}
-  ${serv.length?'<div class="sec">Serviços / mão de obra</div>'+tabela(serv):''}
-  <div class="totals">
-    <div><span>Peças</span><span>${brl(o.pecas)}</span></div>
-    <div><span>Serviços</span><span>${brl(o.servicos)}</span></div>
-    ${o.desconto?`<div><span>Desconto</span><span>− ${brl(o.desconto)}</span></div>`:''}
-    <div class="g"><span>TOTAL</span><span>${brl(o.total)}</span></div>
-  </div>
-  ${cond.length?`<div class="obs">${cond.map(c=>`<b>${c[0]}:</b> ${esc(c[1])}`).join('<br>')}</div>`:''}
-  ${o.obs?`<div class="obs"><b>Observações:</b> ${esc(o.obs)}</div>`:''}
-  <div class="sign"><div>${esc(cfg.resp||cfg.nome)}</div><div>Aprovação do cliente</div></div>`;
-}
+function addItem(tipo){atual.itens.push({tipo,desc:tipo==='peca'?'Peça':'Mão de obra',qtd:1,valor:0,prio:'recomendado',motivo:''});renderItens()}
 
-/* ---------- texto do WhatsApp ---------- */
-function textoWhats(o){
-  const L=[];
-  L.push(`*${cfg.nome}*`);
-  L.push(`Orçamento nº ${String(o.numero).padStart(4,'0')} — ${o.data}`,'');
-  if(o.cliente)L.push(`Olá, ${o.cliente.split(' ')[0]}! Segue o orçamento do seu veículo:`);
-  if(o.veiculo||o.placa)L.push(`🚗 ${[o.veiculo,o.placa.toUpperCase()].filter(Boolean).join(' — ')}`);
-  L.push('');
-  const bloco=(t,l)=>{if(!l.length)return;L.push(`*${t}*`);l.forEach(i=>L.push(`• ${i.qtd!==1?i.qtd+'x ':''}${i.desc} — ${brl(i.qtd*i.valor)}`));L.push('')};
-  bloco('Peças',o.itens.filter(i=>i.tipo==='Peça'));
-  bloco('Serviços',o.itens.filter(i=>i.tipo==='Serviço'));
-  if(o.desconto)L.push(`Subtotal: ${brl(o.subtotal)}`,`Desconto: −${brl(o.desconto)}`);
-  L.push(`*TOTAL: ${brl(o.total)}*`,'');
-  if(o.prazo)L.push(`⏱️ Prazo: ${o.prazo}`);
-  if(o.pagto)L.push(`💳 Pagamento: ${o.pagto}`);
-  if(o.garantia)L.push(`✅ Garantia: ${o.garantia}`);
-  if(o.validade)L.push(`📅 Válido por ${o.validade} dias`);
-  if(o.obs)L.push('',o.obs);
-  L.push('','Posso dar andamento? É só responder *SIM* 👍');
-  return L.join('\n');
+/* ---------- Salvar / enviar ---------- */
+function salvar(aviso=true){
+  if(!atual)return;atualizar();
+  for(const i of atual.itens)if(i.valor&&i.desc){const c=cat.find(c=>norm(c.desc)===norm(i.desc));if(c)c.valor=i.valor;else cat.push({desc:i.desc,valor:i.valor})}
+  S.set('cat',cat);
+  const h=hist.findIndex(x=>x.num===atual.num);
+  if(h>=0)hist[h]=JSON.parse(JSON.stringify(atual));else{hist.push(JSON.parse(JSON.stringify(atual)));cfg.num=Number(cfg.num)+1;S.set('cfg',cfg)}
+  S.set('hist',hist.slice(-300));if(aviso)toast('Orçamento salvo');
 }
-function enviarWhats(){
-  const o=dados(); if(!o.itens.length)return toast('Adicione pelo menos um item');
-  salvar(false);
-  let f=o.fone.replace(/\D/g,''); if(f && f.length<=11)f='55'+f;
-  window.open(`https://wa.me/${f}?text=${encodeURIComponent(textoWhats(o))}`,'_blank');
+const foneWa=f=>{let d=String(f||'').replace(/\D/g,'');if(d.length===10||d.length===11)d='55'+d;return d};
+async function copiar(){try{await navigator.clipboard.writeText(texto());return true}catch(e){return false}}
+async function envVideo(){
+  if(!atual)return;salvar(false);
+  const t=texto(),f=video&&new File([video],`orcamento-${atual.num}.mp4`,{type:video.type||'video/mp4'});
+  if(f&&navigator.canShare&&navigator.canShare({files:[f]})){
+    await copiar();
+    try{await navigator.share({files:[f],text:t});toast('Se o texto não aparecer na legenda, é só colar (já está copiado).')}
+    catch(e){if(e.name!=='AbortError')toast('Não deu para compartilhar: '+e.message)}
+  }else{toast('Este aparelho não envia vídeo direto. Abrindo só o texto.');envTexto()}
 }
-function copiarTexto(){
-  const t=textoWhats(dados());
-  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('Texto copiado'),()=>{prompt('Copie o texto:',t)});
-}
-function imprimir(){ if(!lerItens().length)return toast('Adicione pelo menos um item'); salvar(false); window.print(); }
+function envTexto(){if(!atual)return;salvar(false);const d=foneWa(atual.veic.fone);location.href=`https://wa.me/${d}?text=${encodeURIComponent(texto())}`}
 
-/* ---------- salvar / histórico ---------- */
-function salvar(aviso){
-  const o=dados(); if(!o.itens.length&&!o.cliente){if(aviso)toast('Nada para salvar');return}
-  o.itens.forEach(i=>{if(i.desc)catalogo[i.desc.toLowerCase()]={tipo:i.tipo,valor:i.valor,desc:i.desc}});
-  store.set('oo_cat',catalogo); montarCatalogo();
-  if(!atual){atual={numero:cfg.num,data:o.data}; cfg.num++; store.set('oo_cfg',cfg)}
-  o.numero=atual.numero;
-  const ix=historico.findIndex(h=>h.numero===o.numero);
-  if(ix>=0)historico[ix]=o; else historico.unshift(o);
-  store.set('oo_hist',historico);
-  if(aviso)toast(`Orçamento nº ${String(o.numero).padStart(4,'0')} salvo`);
+/* ---------- Histórico e config ---------- */
+function abrirHist(){
+  $('histLista').innerHTML=hist.slice().reverse().map(o=>`<div class="hist"><div><b>nº ${o.num}</b> · ${esc(o.veic.placa)} · ${esc(o.veic.modelo)}<br><span class="mut">${new Date(o.data).toLocaleDateString('pt-BR')} · ${brl(o.itens.reduce((s,i)=>s+i.qtd*i.valor,0))}</span></div><button data-num="${o.num}">Abrir</button></div>`).join('')||'<p class="mut">Nenhum orçamento salvo ainda.</p>';
+  $('dHist').showModal();
 }
-function carregar(o){
-  atual={numero:o.numero,data:o.data};
-  campos.forEach(c=>$(c).value=o[c]??'');
-  $('itens').innerHTML=''; o.itens.forEach(i=>addItem(i.tipo,i,false));
-  dlgHist.close(); atualizar();
+function abrirCfg(){
+  $('cNome').value=cfg.nome;$('cFone').value=cfg.fone;$('cCnpj').value=cfg.cnpj;$('cEnd').value=cfg.end;$('cNum').value=cfg.num;$('cKey').value=cfg.key;$('cModelo').value=cfg.modelo;
+  $('cCat').value=cat.map(c=>`${c.desc} ; ${c.valor.toFixed(2).replace('.',',')}`).join('\n');
+  $('dCfg').showModal();
 }
-function duplicar(o){carregar(o); atual=null; atualizar(); toast('Cópia criada — vai ganhar novo número ao salvar')}
-function novo(){
-  atual=null; campos.forEach(c=>$(c).value=''); $('descTipo').value='R$'; $('validade').value='7';
-  $('itens').innerHTML=''; addItem('Peça',{},false); $('cliente').focus(); atualizar();
-}
-function abrirHist(){ $('busca').value=''; renderHist(); dlgHist.showModal(); }
-function renderHist(){
-  const q=$('busca').value.toLowerCase();
-  const l=historico.filter(h=>[h.cliente,h.placa,h.veiculo].join(' ').toLowerCase().includes(q));
-  $('histList').innerHTML=l.length?'':'<div class="empty">Nenhum orçamento salvo ainda.</div>';
-  l.forEach(h=>{
-    const d=document.createElement('div');
-    d.innerHTML=`<span><b>Nº ${String(h.numero).padStart(4,'0')}</b> · ${esc(h.cliente||'—')} · ${esc(h.veiculo||'')} ${esc((h.placa||'').toUpperCase())}<br><span class="small">${h.data} · ${brl(h.total)}</span></span><span style="display:flex;gap:6px"><button>Abrir</button><button>Duplicar</button></span>`;
-    const [a,b]=d.querySelectorAll('button'); a.onclick=()=>carregar(h); b.onclick=()=>duplicar(h);
-    $('histList').appendChild(d);
-  });
-}
-function montarCatalogo(){ $('catalogo').innerHTML=Object.values(catalogo).map(c=>`<option value="${esc(c.desc)}">${c.tipo} · ${brl(c.valor)}</option>`).join(''); }
-
-/* ---------- configuração ---------- */
-function abrirCfg(){ $('cNome').value=cfg.nome;$('cCnpj').value=cfg.cnpj;$('cFone').value=cfg.fone;$('cResp').value=cfg.resp;$('cEnd').value=cfg.end;$('cNum').value=cfg.num; dlgCfg.showModal(); }
 function salvarCfg(){
-  cfg={nome:$('cNome').value||'Sua Oficina',cnpj:$('cCnpj').value,fone:$('cFone').value,resp:$('cResp').value,end:$('cEnd').value,num:parseInt($('cNum').value)||cfg.num};
-  store.set('oo_cfg',cfg); dlgCfg.close(); atualizar(); toast('Dados da oficina salvos');
+  cfg={nome:$('cNome').value.trim(),fone:$('cFone').value.trim(),cnpj:$('cCnpj').value.trim(),end:$('cEnd').value.trim(),num:parseInt($('cNum').value)||1,key:$('cKey').value.trim(),modelo:$('cModelo').value.trim()||'gemini-3.8-flash'};
+  cat=$('cCat').value.split('\n').map(l=>{const p=l.split(';');return{desc:p[0].trim(),valor:num(p[1])}}).filter(c=>c.desc);
+  S.set('cfg',cfg);S.set('cat',cat);$('dCfg').close();checarCfg();toast('Configurações salvas');
 }
+function checarCfg(){$('avisoCfg').hidden=!!(cfg.key&&cfg.nome)}
 
-/* ---------- início ---------- */
-document.querySelector('.form').addEventListener('input',atualizar);
-document.querySelector('.form').addEventListener('change',atualizar);
-montarCatalogo();
-if(!Object.keys(catalogo).length){ // exemplos para a demonstração
-  [['Óleo 5W30 sintético (litro)','Peça',42],['Filtro de óleo','Peça',38],['Pastilha de freio dianteira (jogo)','Peça',160],['Troca de óleo e filtro','Serviço',60],['Troca de pastilhas dianteiras','Serviço',120],['Alinhamento e balanceamento','Serviço',140],['Diagnóstico com scanner','Serviço',90]]
-    .forEach(([d,t,v])=>catalogo[d.toLowerCase()]={desc:d,tipo:t,valor:v});
-  montarCatalogo();
+/* ---------- Eventos ---------- */
+$('selVeic').onchange=mostrarVeic;
+$('bNovoVeic').onclick=()=>abrirVeic(null);
+$('bEditVeic').onclick=()=>abrirVeic(veicAtual());
+$('bVeicOk').onclick=salvarVeic;$('bVeicCanc').onclick=()=>$('dVeic').close();
+$('bGravar').onclick=()=>$('fGravar').click();$('bGaleria').onclick=()=>$('fGaleria').click();
+$('fGravar').onchange=e=>pegarVideo(e.target.files[0]);$('fGaleria').onchange=e=>pegarVideo(e.target.files[0]);
+$('bAnalisar').onclick=analisar;
+$('itens').addEventListener('input',e=>{const el=e.target,k=el.closest('.item')?.dataset.k;if(k==null||!el.dataset.f)return;const i=atual.itens[k];
+  if(el.dataset.f==='qtd')i.qtd=num(el.value)||0;else if(el.dataset.f==='valor'){i.valor=num(el.value);el.closest('.item').classList.toggle('semp',!i.valor)}else i[el.dataset.f]=el.value;atualizar()});
+$('itens').addEventListener('change',e=>{if(e.target.dataset.f==='prio')atualizar()});
+$('itens').addEventListener('click',e=>{const d=e.target.dataset.del;if(d!=null){atual.itens.splice(d,1);renderItens()}});
+for(const id of['resumo','validade','prazo'])$(id).addEventListener('input',atualizar);
+$('bAddPeca').onclick=()=>addItem('peca');$('bAddServ').onclick=()=>addItem('servico');
+$('bEnvVideo').onclick=envVideo;$('bEnvTexto').onclick=envTexto;
+$('bCopiar').onclick=async()=>toast(await copiar()?'Texto copiado':'Não deu para copiar');
+$('bSalvar').onclick=()=>salvar();
+$('bHist').onclick=abrirHist;$('bHistFechar').onclick=()=>$('dHist').close();
+$('histLista').onclick=e=>{const n=e.target.dataset.num;if(!n)return;atual=JSON.parse(JSON.stringify(hist.find(o=>String(o.num)===n)));$('dHist').close();mostrarOrc()};
+$('bCfg').onclick=abrirCfg;$('bCfgOk').onclick=salvarCfg;$('bCfgCanc').onclick=()=>$('dCfg').close();
+
+renderVeics();checarCfg();
 }
-novo();
 </script>
 </body>
 </html>

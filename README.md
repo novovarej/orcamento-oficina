@@ -1,12 +1,14 @@
-# Orçamento Rápido — Oficina
+# Orçamento por Vídeo — Oficina
 
-Monte o orçamento, gere o PDF e envie pelo WhatsApp em poucos minutos.
+O mecânico grava um vídeo do carro **falando** o que encontrou. A IA assiste, ouve e monta o orçamento com os preços da oficina. O vídeo e o orçamento vão juntos para o cliente no WhatsApp.
 
-**Como usar:** abra o `index.html` no navegador (Chrome ou Edge).
+**Como usar (no celular):**
+1. ⚙️ **Configurações** (só uma vez): dados da oficina, chave da IA (Google Gemini, grátis em aistudio.google.com) e tabela de preços.
+2. **Veículo:** cadastre antes cliente, WhatsApp, placa, modelo e ano.
+3. **Vídeo:** toque em **Gravar** (ou escolha da galeria) e depois em **Montar orçamento com IA**.
+4. **Confira** itens e preços. Itens sem preço ficam em vermelho.
+5. **Enviar vídeo + orçamento**: abre o WhatsApp com o vídeo, e o texto vai junto (e fica copiado).
 
-1. Em **Dados da oficina**, preencha nome, CNPJ, telefone e endereço (só uma vez).
-2. Preencha cliente e veículo.
-3. Adicione peças e serviços. Os itens já usados aparecem com o último preço.
-4. Clique em **Enviar no WhatsApp** ou em **PDF / Imprimir**.
+Os preços corrigidos entram sozinhos na tabela. Os orçamentos ficam no **Histórico** (sem o vídeo).
 
-Os orçamentos ficam salvos no **Histórico**, onde dá para reabrir ou duplicar.
+`versao-0.1-manual.html`: versão anterior, com orçamento digitado à mão no computador.

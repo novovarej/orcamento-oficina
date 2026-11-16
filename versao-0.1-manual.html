@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orçamento Rápido — Oficina</title>
+<style>
+  :root{--bg:#f4f5f7;--card:#fff;--ink:#1d2330;--mut:#6b7280;--line:#e3e6ea;--pri:#1f6feb;--ok:#1a7f37;--wa:#25d366;--warn:#b42318}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+  header{background:var(--ink);color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  header h1{font-size:18px;margin:0}
+  header .acts{display:flex;gap:8px;flex-wrap:wrap}
+  main{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px;padding:16px;max-width:1400px;margin:0 auto}
+  @media(max-width:900px){main{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+  .card h2{font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin:0 0 10px}
+  .row{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:8px}
+  label{font-size:12px;color:var(--mut);display:block;margin-bottom:3px}
+  input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font:inherit;background:#fff}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--pri);border-color:transparent}
+  textarea{min-height:60px;resize:vertical}
+  button{font:inherit;border:0;border-radius:7px;padding:8px 14px;cursor:pointer;background:#e9ecef;color:var(--ink)}
+  button.pri{background:var(--pri);color:#fff}
+  button.wa{background:var(--wa);color:#08361a;font-weight:600}
+  button.ghost{background:transparent;color:#fff;border:1px solid #ffffff55}
+  button.del{background:transparent;color:var(--warn);padding:4px 8px;font-size:18px;line-height:1}
+  table.items{width:100%;border-collapse:collapse}
+  table.items th{font-size:12px;color:var(--mut);text-align:left;font-weight:500;padding:4px}
+  table.items td{padding:3px 4px;vertical-align:middle}
+  table.items td.num{width:80px}
+  table.items td.val{width:110px}
+  table.items td.tot{width:100px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  table.items td.tipo{width:105px}
+  .addbar{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .hint{font-size:12px;color:var(--mut);margin-top:6px}
+  /* Pré-visualização / documento */
+  .doc{background:#fff;border:1px solid var(--line);border-radius:10px;padding:28px 30px;font-size:13px;position:sticky;top:12px}
+  .doc .top{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:12px}
+  .doc .shop{font-size:18px;font-weight:700}
+  .doc .small{color:var(--mut);font-size:12px;line-height:1.45}
+  .doc .num{text-align:right}
+  .doc .num b{font-size:16px}
+  .doc .info{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;margin-bottom:12px}
+  .doc table{width:100%;border-collapse:collapse;margin-bottom:8px}
+  .doc th{background:#f0f2f5;text-align:left;padding:6px;font-size:12px}
+  .doc td{padding:6px;border-bottom:1px solid var(--line)}
+  .doc td.r,.doc th.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .doc .sec{font-weight:600;margin:10px 0 4px}
+  .doc .totals{margin-left:auto;width:260px}
+  .doc .totals div{display:flex;justify-content:space-between;padding:3px 0}
+  .doc .totals .g{border-top:2px solid var(--ink);font-size:16px;font-weight:700;padding-top:6px;margin-top:4px}
+  .doc .obs{margin-top:14px;white-space:pre-wrap}
+  .doc .sign{margin-top:40px;display:flex;gap:30px}
+  .doc .sign div{flex:1;border-top:1px solid var(--ink);text-align:center;padding-top:4px;font-size:12px}
+  .empty{color:var(--mut);font-style:italic;padding:8px 0}
+  /* Modais */
+  dialog{border:0;border-radius:12px;padding:0;max-width:640px;width:94%}
+  dialog .in{padding:18px 20px}
+  dialog h3{margin:0 0 12px}
+  dialog .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+  .hist{max-height:55vh;overflow:auto}
+  .hist div{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);gap:10px}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none}
+  .toast.on{opacity:1}
+  @media print{
+    @page{size:A4;margin:12mm}
+    body{background:#fff}
+    header,.form,.toast,dialog{display:none!important}
+    main{display:block;padding:0}
+    .doc{border:0;padding:0;position:static}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔧 Orçamento Rápido</h1>
+  <div class="acts">
+    <button class="ghost" onclick="novo()">+ Novo</button>
+    <button class="ghost" onclick="abrirHist()">Histórico</button>
+    <button class="ghost" onclick="abrirCfg()">Dados da oficina</button>
+  </div>
+</header>
+
+<main>
+  <section class="form">
+    <div class="card">
+      <h2>Cliente e veículo</h2>
+      <div class="row">
+        <div><label>Cliente</label><input id="cliente" placeholder="Nome do cliente"></div>
+        <div><label>WhatsApp</label><input id="fone" placeholder="(14) 99999-9999" inputmode="tel"></div>
+      </div>
+      <div class="row">
+        <div><label>Veículo</label><input id="veiculo" placeholder="Ex.: Gol 1.6 2015"></div>
+        <div><label>Placa</label><input id="placa" placeholder="ABC1D23" style="text-transform:uppercase"></div>
+        <div><label>KM</label><input id="km" inputmode="numeric" placeholder="85.000"></div>
+      </div>
+      <div class="row">
+        <div><label>Problema relatado / diagnóstico</label><input id="problema" placeholder="Ex.: barulho na suspensão dianteira"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Peças e serviços</h2>
+      <table class="items">
+        <thead><tr><th>Tipo</th><th>Descrição</th><th>Qtd</th><th>Valor un.</th><th class="r">Total</th><th></th></tr></thead>
+        <tbody id="itens"></tbody>
+      </table>
+      <div class="addbar">
+        <button class="pri" onclick="addItem('Peça')">+ Peça</button>
+        <button class="pri" onclick="addItem('Serviço')">+ Serviço</button>
+      </div>
+      <div class="hint">Comece a digitar a descrição: os itens que você já usou aparecem com o último preço. Enter na última linha cria outra.</div>
+      <datalist id="catalogo"></datalist>
+    </div>
+
+    <div class="card">
+      <h2>Condições</h2>
+      <div class="row">
+        <div><label>Desconto</label><input id="desc" inputmode="decimal" placeholder="0"></div>
+        <div><label>Tipo de desconto</label><select id="descTipo"><option value="R$">R$</option><option value="%">%</option></select></div>
+        <div><label>Validade (dias)</label><input id="validade" inputmode="numeric" value="7"></div>
+        <div><label>Prazo de execução</label><input id="prazo" placeholder="Ex.: 2 dias úteis"></div>
+      </div>
+      <div class="row">
+        <div><label>Forma de pagamento</label><input id="pagto" placeholder="Pix, cartão em até 3x…"></div>
+        <div><label>Garantia</label><input id="garantia" placeholder="Ex.: 90 dias peças e serviço"></div>
+      </div>
+      <div><label>Observações</label><textarea id="obs" placeholder="Informações adicionais para o cliente"></textarea></div>
+    </div>
+
+    <div class="card" style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="wa" onclick="enviarWhats()">📲 Enviar no WhatsApp</button>
+      <button class="pri" onclick="imprimir()">🖨️ PDF / Imprimir</button>
+      <button onclick="salvar(true)">💾 Salvar</button>
+      <button onclick="copiarTexto()">📋 Copiar texto</button>
+    </div>
+  </section>
+
+  <section>
+    <div class="doc" id="doc"></div>
+  </section>
+</main>
+
+<dialog id="dlgCfg"><div class="in">
+  <h3>Dados da oficina</h3>
+  <div class="row"><div><label>Nome da oficina</label><input id="cNome"></div><div><label>CNPJ</label><input id="cCnpj"></div></div>
+  <div class="row"><div><label>Telefone / WhatsApp</label><input id="cFone"></div><div><label>Responsável</label><input id="cResp"></div></div>
+  <div class="row"><div><label>Endereço</label><input id="cEnd"></div></div>
+  <div class="row"><div><label>Próximo número de orçamento</label><input id="cNum" inputmode="numeric"></div></div>
+  <div class="foot"><button onclick="dlgCfg.close()">Cancelar</button><button class="pri" onclick="salvarCfg()">Salvar</button></div>
+</div></dialog>
+
+<dialog id="dlgHist"><div class="in">
+  <h3>Orçamentos salvos</h3>
+  <input id="busca" placeholder="Buscar por cliente, placa ou veículo" oninput="renderHist()" style="margin-bottom:8px">
+  <div class="hist" id="histList"></div>
+  <div class="foot"><button onclick="dlgHist.close()">Fechar</button></div>
+</div></dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- armazenamento local (protegido) ---------- */
+const store={
+  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+let cfg=store.get('oo_cfg',{nome:'Sua Oficina',cnpj:'',fone:'',resp:'',end:'',num:1});
+let catalogo=store.get('oo_cat',{});      // descrição -> {tipo, valor}
+let historico=store.get('oo_hist',[]);
+let atual=null;                            // orçamento em edição
+
+const $=id=>document.getElementById(id);
+const brl=v=>(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const num=s=>{if(typeof s==='number')return s;s=String(s||'').trim();if(!s)return 0;s=s.replace(/[^\d,.-]/g,'');if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');return parseFloat(s)||0};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const hoje=()=>new Date().toLocaleDateString('pt-BR');
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),2200)}
+
+const campos=['cliente','fone','veiculo','placa','km','problema','desc','descTipo','validade','prazo','pagto','garantia','obs'];
+
+/* ---------- itens ---------- */
+function addItem(tipo,d={},foco=true){
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td class="tipo"><select class="it-tipo"><option>Peça</option><option>Serviço</option></select></td>
+  <td><input class="it-desc" list="catalogo" placeholder="${tipo==='Serviço'?'Ex.: Troca de pastilhas':'Ex.: Pastilha de freio dianteira'}"></td>
+  <td class="num"><input class="it-qtd" inputmode="decimal" value="1"></td>
+  <td class="val"><input class="it-val" inputmode="decimal" placeholder="0,00"></td>
+  <td class="tot">R$ 0,00</td>
+  <td><button class="del" title="Remover">×</button></td>`;
+  tr.querySelector('.it-tipo').value=d.tipo||tipo;
+  tr.querySelector('.it-desc').value=d.desc||'';
+  tr.querySelector('.it-qtd').value=d.qtd??1;
+  tr.querySelector('.it-val').value=d.valor?String(d.valor).replace('.',','):'';
+  tr.querySelector('.del').onclick=()=>{tr.remove();atualizar()};
+  tr.querySelector('.it-desc').addEventListener('change',e=>{
+    const c=catalogo[e.target.value.trim().toLowerCase()];
+    if(c){tr.querySelector('.it-tipo').value=c.tipo; if(!num(tr.querySelector('.it-val').value))tr.querySelector('.it-val').value=String(c.valor).replace('.',',');atualizar()}
+  });
+  tr.querySelectorAll('input').forEach(i=>i.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault(); if(tr===$('itens').lastElementChild) addItem(tr.querySelector('.it-tipo').value); else tr.nextElementSibling.querySelector('.it-desc').focus()}
+  }));
+  $('itens').appendChild(tr);
+  if(foco)tr.querySelector('.it-desc').focus();
+  atualizar();
+}
+function lerItens(){
+  return [...$('itens').children].map(tr=>({
+    tipo:tr.querySelector('.it-tipo').value,
+    desc:tr.querySelector('.it-desc').value.trim(),
+    qtd:num(tr.querySelector('.it-qtd').value)||0,
+    valor:num(tr.querySelector('.it-val').value)
+  })).filter(i=>i.desc||i.valor);
+}
+
+/* ---------- cálculo e documento ---------- */
+function dados(){
+  const o={};campos.forEach(c=>o[c]=$(c).value);
+  o.itens=lerItens();
+  o.pecas=o.itens.filter(i=>i.tipo==='Peça').reduce((s,i)=>s+i.qtd*i.valor,0);
+  o.servicos=o.itens.filter(i=>i.tipo==='Serviço').reduce((s,i)=>s+i.qtd*i.valor,0);
+  o.subtotal=o.pecas+o.servicos;
+  const d=num(o.desc);
+  o.desconto=Math.min(o.subtotal,o.descTipo==='%'?o.subtotal*d/100:d);
+  o.total=o.subtotal-o.desconto;
+  o.numero=atual?.numero??cfg.num;
+  o.data=atual?.data??hoje();
+  return o;
+}
+function atualizar(){
+  [...$('itens').children].forEach(tr=>{
+    tr.querySelector('.tot').textContent=brl(num(tr.querySelector('.it-qtd').value)*num(tr.querySelector('.it-val').value));
+  });
+  renderDoc(dados());
+}
+function tabela(lista){
+  if(!lista.length)return'';
+  return `<table><thead><tr><th>Descrição</th><th class="r">Qtd</th><th class="r">Valor un.</th><th class="r">Total</th></tr></thead><tbody>${
+    lista.map(i=>`<tr><td>${esc(i.desc)}</td><td class="r">${i.qtd.toLocaleString('pt-BR')}</td><td class="r">${brl(i.valor)}</td><td class="r">${brl(i.qtd*i.valor)}</td></tr>`).join('')
+  }</tbody></table>`;
+}
+function renderDoc(o){
+  const pecas=o.itens.filter(i=>i.tipo==='Peça'), serv=o.itens.filter(i=>i.tipo==='Serviço');
+  const linhaInfo=(r,v)=>v?`<div><span class="small">${r}:</span> ${esc(v)}</div>`:'';
+  const cond=[['Validade',o.validade?o.validade+' dias':''],['Prazo de execução',o.prazo],['Pagamento',o.pagto],['Garantia',o.garantia]].filter(x=>x[1]);
+  $('doc').innerHTML=`
+  <div class="top">
+    <div><div class="shop">${esc(cfg.nome)}</div>
+      <div class="small">${[cfg.cnpj&&'CNPJ '+cfg.cnpj,cfg.end,cfg.fone].filter(Boolean).map(esc).join('<br>')}</div></div>
+    <div class="num"><div class="small">ORÇAMENTO</div><b>Nº ${String(o.numero).padStart(4,'0')}</b><div class="small">${o.data}</div></div>
+  </div>
+  <div class="info">
+    ${linhaInfo('Cliente',o.cliente)}${linhaInfo('Telefone',o.fone)}
+    ${linhaInfo('Veículo',o.veiculo)}${linhaInfo('Placa',o.placa.toUpperCase())}
+    ${linhaInfo('KM',o.km)}${linhaInfo('Relato',o.problema)}
+  </div>
+  ${o.itens.length?'':'<div class="empty">Adicione peças e serviços ao lado para montar o orçamento.</div>'}
+  ${pecas.length?'<div class="sec">Peças</div>'+tabela(pecas):''}
+  ${serv.length?'<div class="sec">Serviços / mão de obra</div>'+tabela(serv):''}
+  <div class="totals">
+    <div><span>Peças</span><span>${brl(o.pecas)}</span></div>
+    <div><span>Serviços</span><span>${brl(o.servicos)}</span></div>
+    ${o.desconto?`<div><span>Desconto</span><span>− ${brl(o.desconto)}</span></div>`:''}
+    <div class="g"><span>TOTAL</span><span>${brl(o.total)}</span></div>
+  </div>
+  ${cond.length?`<div class="obs">${cond.map(c=>`<b>${c[0]}:</b> ${esc(c[1])}`).join('<br>')}</div>`:''}
+  ${o.obs?`<div class="obs"><b>Observações:</b> ${esc(o.obs)}</div>`:''}
+  <div class="sign"><div>${esc(cfg.resp||cfg.nome)}</div><div>Aprovação do cliente</div></div>`;
+}
+
+/* ---------- texto do WhatsApp ---------- */
+function textoWhats(o){
+  const L=[];
+  L.push(`*${cfg.nome}*`);
+  L.push(`Orçamento nº ${String(o.numero).padStart(4,'0')} — ${o.data}`,'');
+  if(o.cliente)L.push(`Olá, ${o.cliente.split(' ')[0]}! Segue o orçamento do seu veículo:`);
+  if(o.veiculo||o.placa)L.push(`🚗 ${[o.veiculo,o.placa.toUpperCase()].filter(Boolean).join(' — ')}`);
+  L.push('');
+  const bloco=(t,l)=>{if(!l.length)return;L.push(`*${t}*`);l.forEach(i=>L.push(`• ${i.qtd!==1?i.qtd+'x ':''}${i.desc} — ${brl(i.qtd*i.valor)}`));L.push('')};
+  bloco('Peças',o.itens.filter(i=>i.tipo==='Peça'));
+  bloco('Serviços',o.itens.filter(i=>i.tipo==='Serviço'));
+  if(o.desconto)L.push(`Subtotal: ${brl(o.subtotal)}`,`Desconto: −${brl(o.desconto)}`);
+  L.push(`*TOTAL: ${brl(o.total)}*`,'');
+  if(o.prazo)L.push(`⏱️ Prazo: ${o.prazo}`);
+  if(o.pagto)L.push(`💳 Pagamento: ${o.pagto}`);
+  if(o.garantia)L.push(`✅ Garantia: ${o.garantia}`);
+  if(o.validade)L.push(`📅 Válido por ${o.validade} dias`);
+  if(o.obs)L.push('',o.obs);
+  L.push('','Posso dar andamento? É só responder *SIM* 👍');
+  return L.join('\n');
+}
+function enviarWhats(){
+  const o=dados(); if(!o.itens.length)return toast('Adicione pelo menos um item');
+  salvar(false);
+  let f=o.fone.replace(/\D/g,''); if(f && f.length<=11)f='55'+f;
+  window.open(`https://wa.me/${f}?text=${encodeURIComponent(textoWhats(o))}`,'_blank');
+}
+function copiarTexto(){
+  const t=textoWhats(dados());
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('Texto copiado'),()=>{prompt('Copie o texto:',t)});
+}
+function imprimir(){ if(!lerItens().length)return toast('Adicione pelo menos um item'); salvar(false); window.print(); }
+
+/* ---------- salvar / histórico ---------- */
+function salvar(aviso){
+  const o=dados(); if(!o.itens.length&&!o.cliente){if(aviso)toast('Nada para salvar');return}
+  o.itens.forEach(i=>{if(i.desc)catalogo[i.desc.toLowerCase()]={tipo:i.tipo,valor:i.valor,desc:i.desc}});
+  store.set('oo_cat',catalogo); montarCatalogo();
+  if(!atual){atual={numero:cfg.num,data:o.data}; cfg.num++; store.set('oo_cfg',cfg)}
+  o.numero=atual.numero;
+  const ix=historico.findIndex(h=>h.numero===o.numero);
+  if(ix>=0)historico[ix]=o; else historico.unshift(o);
+  store.set('oo_hist',historico);
+  if(aviso)toast(`Orçamento nº ${String(o.numero).padStart(4,'0')} salvo`);
+}
+function carregar(o){
+  atual={numero:o.numero,data:o.data};
+  campos.forEach(c=>$(c).value=o[c]??'');
+  $('itens').innerHTML=''; o.itens.forEach(i=>addItem(i.tipo,i,false));
+  dlgHist.close(); atualizar();
+}
+function duplicar(o){carregar(o); atual=null; atualizar(); toast('Cópia criada — vai ganhar novo número ao salvar')}
+function novo(){
+  atual=null; campos.forEach(c=>$(c).value=''); $('descTipo').value='R$'; $('validade').value='7';
+  $('itens').innerHTML=''; addItem('Peça',{},false); $('cliente').focus(); atualizar();
+}
+function abrirHist(){ $('busca').value=''; renderHist(); dlgHist.showModal(); }
+function renderHist(){
+  const q=$('busca').value.toLowerCase();
+  const l=historico.filter(h=>[h.cliente,h.placa,h.veiculo].join(' ').toLowerCase().includes(q));
+  $('histList').innerHTML=l.length?'':'<div class="empty">Nenhum orçamento salvo ainda.</div>';
+  l.forEach(h=>{
+    const d=document.createElement('div');
+    d.innerHTML=`<span><b>Nº ${String(h.numero).padStart(4,'0')}</b> · ${esc(h.cliente||'—')} · ${esc(h.veiculo||'')} ${esc((h.placa||'').toUpperCase())}<br><span class="small">${h.data} · ${brl(h.total)}</span></span><span style="display:flex;gap:6px"><button>Abrir</button><button>Duplicar</button></span>`;
+    const [a,b]=d.querySelectorAll('button'); a.onclick=()=>carregar(h); b.onclick=()=>duplicar(h);
+    $('histList').appendChild(d);
+  });
+}
+function montarCatalogo(){ $('catalogo').innerHTML=Object.values(catalogo).map(c=>`<option value="${esc(c.desc)}">${c.tipo} · ${brl(c.valor)}</option>`).join(''); }
+
+/* ---------- configuração ---------- */
+function abrirCfg(){ $('cNome').value=cfg.nome;$('cCnpj').value=cfg.cnpj;$('cFone').value=cfg.fone;$('cResp').value=cfg.resp;$('cEnd').value=cfg.end;$('cNum').value=cfg.num; dlgCfg.showModal(); }
+function salvarCfg(){
+  cfg={nome:$('cNome').value||'Sua Oficina',cnpj:$('cCnpj').value,fone:$('cFone').value,resp:$('cResp').value,end:$('cEnd').value,num:parseInt($('cNum').value)||cfg.num};
+  store.set('oo_cfg',cfg); dlgCfg.close(); atualizar(); toast('Dados da oficina salvos');
+}
+
+/* ---------- início ---------- */
+document.querySelector('.form').addEventListener('input',atualizar);
+document.querySelector('.form').addEventListener('change',atualizar);
+montarCatalogo();
+if(!Object.keys(catalogo).length){ // exemplos para a demonstração
+  [['Óleo 5W30 sintético (litro)','Peça',42],['Filtro de óleo','Peça',38],['Pastilha de freio dianteira (jogo)','Peça',160],['Troca de óleo e filtro','Serviço',60],['Troca de pastilhas dianteiras','Serviço',120],['Alinhamento e balanceamento','Serviço',140],['Diagnóstico com scanner','Serviço',90]]
+    .forEach(([d,t,v])=>catalogo[d.toLowerCase()]={desc:d,tipo:t,valor:v});
+  montarCatalogo();
+}
+novo();
+</script>
+</body>
+</html>
