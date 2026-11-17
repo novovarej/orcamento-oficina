@@ -48,6 +48,12 @@ Produto que o Tiago (Novo Varejo) pretende vender para oficinas de Botucatu e re
 - Agora: lista de modelos da chave aceita qualquer gemini de texto (não só flash/pro); se o modelo configurado não existe na chave, usa direto os disponíveis; 1ª rodada passa por todos sem esperar, 2ª rodada após 10s.
 - Guarda em localStorage `orv_modeloOk` (o que funcionou, tentado primeiro) e `orv_modelosRuins` (404). Salvar ⚙️ zera os dois.
 
+## Diagnóstico de velocidade (v0.8, 17/11/2026)
+- Teste real (CR-V, 46 s de áudio = 1,4 MB): 89 s+ esperando uma única resposta (chave no nível gratuito).
+- Limite de 45 s por resposta: estourou → passa para a próxima IA.
+- ⚙️ "Testar IAs": manda "Responda apenas: OK" para cada modelo da chave em paralelo, mostra o tempo de cada um e grava o mais rápido em `orv_modeloOk`.
+- Contador mostra o modelo em uso. Versão aparece em ⚙️. `public/_headers` com `Cache-Control: no-cache`.
+
 ## Pendências conhecidas
 - Falta o teste real com a chave Gemini (vídeo do HB20 deu 503 na v0.2).
 - Tiago precisa criar a conta Cloudflare e conectar o repo (passo a passo no README).
