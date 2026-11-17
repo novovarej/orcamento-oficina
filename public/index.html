@@ -359,10 +359,26 @@ async function modelosParaTentar(){
 }
 
 /* Uma chamada ao modelo */
+/* Modo rápido: a tarefa é simples (transcrever e listar itens), não precisa da IA "pensar" muito */
+const semModoRapido=new Set(); // modelos que não aceitam o ajuste
+function modoRapido(modelo){
+  if(semModoRapido.has(modelo))return {};
+  if(/gemini-2\.5/i.test(modelo))return {thinkingConfig:{thinkingBudget:/pro/i.test(modelo)?128:0}};
+  if(/gemini-(1|2\.0)/i.test(modelo))return {};
+  return {thinkingConfig:{thinkingLevel:'low'}};
+}
 async function gerar(modelo,parte,v){
-  const r=await buscar(urlIA(`/v1beta/models/${encodeURIComponent(modelo)}:generateContent`),{method:'POST',headers:hdr({'Content-Type':'application/json'}),
-    body:JSON.stringify({contents:[{parts:[parte,{text:prompt(v,!!(parte.inline_data&&/^audio/.test(parte.inline_data.mime_type)))}]}],generationConfig:{responseMimeType:'application/json',responseSchema:esquema,temperature:0.2}})});
-  const j=await r.json().catch(()=>null);
+  const soAudio=!!(parte.inline_data&&/^audio/.test(parte.inline_data.mime_type));
+  const ini=Date.now();
+  const tic=setInterval(()=>etapaTxt(`A IA está ouvindo o mecânico… ${Math.round((Date.now()-ini)/1000)}s`),1000);
+  let r,j;
+  try{
+    r=await buscar(urlIA(`/v1beta/models/${encodeURIComponent(modelo)}:generateContent`),{method:'POST',headers:hdr({'Content-Type':'application/json'}),
+      body:JSON.stringify({contents:[{parts:[parte,{text:prompt(v,soAudio)}]}],generationConfig:{responseMimeType:'application/json',responseSchema:esquema,temperature:0.2,...modoRapido(modelo)}})},120000);
+    j=await r.json().catch(()=>null);
+  }finally{clearInterval(tic)}
+  console.log('[IA]',modelo,r.status,((Date.now()-ini)/1000).toFixed(1)+'s');
+  if(!r.ok&&r.status===400&&!semModoRapido.has(modelo)&&/think/i.test((j&&j.error&&j.error.message)||'')){semModoRapido.add(modelo);return gerar(modelo,parte,v)}
   if(!r.ok)throw erroGoogle(r.status,j);
   const c=j&&j.candidates&&j.candidates[0];
   if(!c){const b=j&&j.promptFeedback&&j.promptFeedback.blockReason;throw new ErroIA(b?'A IA recusou este vídeo. Grave de novo, mostrando só o carro.':'A IA não respondeu nada.',{repetir:!b})}
@@ -370,6 +386,7 @@ async function gerar(modelo,parte,v){
   try{
     const res=JSON.parse(txt);
     if(!Array.isArray(res.itens))throw 0;
+    res._modelo=modelo;res._seg=Math.round((Date.now()-ini)/1000);
     return res;
   }catch(e){throw new ErroIA('A IA respondeu fora do formato.',{repetir:true})}
 }
@@ -482,7 +499,7 @@ async function analisar(){
     }
     etapa('A IA está ouvindo o mecânico');
     const res=await gerarComInsistencia(parte,v);
-    etapa('Orçamento montado');etapa('Confira os itens e os preços abaixo','ok');
+    etapa(`Orçamento montado em ${res._seg}s (${res._modelo})`);etapa('Confira os itens e os preços abaixo','ok');
     montar(res,v);
   }catch(e){etapa(e instanceof ErroIA?e.message:'Algo deu errado: '+(e.message||e)+'. Toque em "Montar orçamento com IA" de novo.','err')}
   finally{podeAnalisar();if(ctxAudio)try{ctxAudio.close()}catch(e){}}

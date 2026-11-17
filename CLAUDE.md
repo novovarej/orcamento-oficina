@@ -39,6 +39,10 @@ Produto que o Tiago (Novo Varejo) pretende vender para oficinas de Botucatu e re
 - Botão Gravar abre câmera dentro do app (MediaRecorder, 720p ~2,5 Mbps, até 3 min); sem permissão/aparelho antigo → câmera do sistema.
 - No 1º teste real pelo servidor (31 MB, 4G), o upload falhou uma vez e o app reenviou sozinho; ficou lento — motivo desta mudança.
 
+## Modo rápido (v0.6, 17/11/2026)
+- Com o áudio (0,8 MB) a demora passou a ser a resposta da IA. Agora vai `thinkingConfig` baixo (`thinkingLevel:'low'`; na 2.5 `thinkingBudget` 0/128); se o modelo recusar (400 com "think"), repete sem o ajuste.
+- Contador de segundos na tela enquanto a IA responde; ao final mostra o tempo e o modelo usado (para diagnosticar lentidão).
+
 ## Pendências conhecidas
 - Falta o teste real com a chave Gemini (vídeo do HB20 deu 503 na v0.2).
 - Tiago precisa criar a conta Cloudflare e conectar o repo (passo a passo no README).
