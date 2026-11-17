@@ -44,6 +44,14 @@ video{width:100%;max-height:340px;border-radius:12px;background:#000;margin-top:
 .alerta{background:#fff1d6;border-radius:10px;padding:8px 10px;font-size:14px;margin-bottom:8px}
 details{margin-top:8px}summary{cursor:pointer;color:var(--mut);font-size:14px}
 pre{white-space:pre-wrap;font:14px/1.4 system-ui,sans-serif;background:#f6f7f9;padding:10px;border-radius:10px;margin:6px 0 0}
+#cam{position:fixed;inset:0;background:#000;z-index:50;display:flex;flex-direction:column}
+#cam[hidden]{display:none}
+#cam video{flex:1;width:100%;object-fit:cover;min-height:0}
+#cam .bar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 28px;color:#fff;font:600 18px system-ui,sans-serif}
+#cam .rec{width:76px;height:76px;border-radius:50%;border:5px solid #fff;background:#e11d48;cursor:pointer}
+#cam .rec.on{border-radius:18px;transform:scale(.8)}
+#cam .x{background:none;border:0;color:#fff;font:600 17px system-ui,sans-serif;width:90px;text-align:left}
+#cam .t{width:90px;text-align:right}#cam .t.on{color:#f87171}
 dialog{border:0;border-radius:16px;padding:0;width:min(560px,94vw);max-height:90vh}
 dialog .in{padding:16px;overflow:auto;max-height:90vh}
 dialog h3{margin:0 0 6px}
@@ -110,6 +118,9 @@ dialog h3{margin:0 0 6px}
     <details><summary>Ver mensagem</summary><pre id="msgPrev"></pre></details>
   </section>
 </main>
+
+<div id="cam" hidden><video id="camV" autoplay playsinline muted></video>
+  <div class="bar"><button class="x" id="camX">Cancelar</button><button class="rec" id="camRec" aria-label="Gravar"></button><span class="t" id="camT">0:00</span></div></div>
 
 <dialog id="dVeic"><div class="in">
   <h3 id="dVeicTit">Cadastrar veículo</h3>
@@ -190,6 +201,73 @@ function salvarVeic(){
 }
 
 /* ---------- Vídeo ---------- */
+/* Vídeo leve: a IA não precisa de alta qualidade. ~1,2 Mbps → 30 s ≈ 4,5 MB (sobe rápido e vai direto, sem upload separado) */
+const BITRATE_V=1200000,BITRATE_CAM=2500000,BITRATE_A=96000,MAX_SEG=180;
+function tipoGravacao(){
+  if(!window.MediaRecorder)return null;
+  for(const t of['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp8,opus','video/webm'])
+    if(MediaRecorder.isTypeSupported(t))return t;
+  return '';
+}
+const mimeBase=t=>(t||'video/webm').split(';')[0];
+const extDe=t=>mimeBase(t).includes('mp4')?'mp4':'webm';
+
+let camStream=null,camRec=null,camPartes=[],camIni=0,camTimer=null;
+async function abrirCamera(){
+  const tipo=tipoGravacao();
+  if(tipo===null||!navigator.mediaDevices?.getUserMedia)return $('fGravar').click(); // aparelho antigo: câmera do sistema
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:24,max:30}},audio:{echoCancellation:true,noiseSuppression:true}});
+  }catch(e){toast('Sem permissão da câmera/microfone — usando a câmera do celular');return $('fGravar').click()}
+  $('camV').srcObject=camStream;$('cam').hidden=false;$('camRec').classList.remove('on');$('camT').textContent='0:00';$('camT').classList.remove('on');
+}
+function fecharCamera(){
+  clearInterval(camTimer);
+  if(camRec&&camRec.state!=='inactive'){camRec.onstop=null;camRec.stop()}
+  camRec=null;camStream?.getTracks().forEach(t=>t.stop());camStream=null;$('camV').srcObject=null;$('cam').hidden=true;
+}
+function alternarGravacao(){
+  if(camRec&&camRec.state==='recording'){camRec.stop();return}
+  const tipo=tipoGravacao();camPartes=[];
+  try{camRec=new MediaRecorder(camStream,{...(tipo?{mimeType:tipo}:{}),videoBitsPerSecond:BITRATE_CAM,audioBitsPerSecond:BITRATE_A})}
+  catch(e){camRec=new MediaRecorder(camStream)}
+  camRec.ondataavailable=e=>e.data.size&&camPartes.push(e.data);
+  camRec.onstop=()=>{
+    const t=mimeBase(camRec.mimeType||tipo);
+    const f=new File(camPartes,`orcamento-${Date.now()}.${extDe(t)}`,{type:t});
+    fecharCamera();
+    if(f.size<1000)return toast('Vídeo vazio, grave de novo');
+    pegarVideo(f);
+  };
+  camRec.start(1000);camIni=Date.now();$('camRec').classList.add('on');$('camT').classList.add('on');
+  camTimer=setInterval(()=>{const s=Math.floor((Date.now()-camIni)/1000);$('camT').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');if(s>=MAX_SEG)camRec.stop()},250);
+}
+
+/* Vídeo grande da galeria: regrava em qualidade leve antes de enviar (leva o tempo do vídeo, mas sobe muito menos) */
+async function reduzirVideo(f,ctxAudio,aoProgresso){
+  const tipo=tipoGravacao();
+  const v=document.createElement('video');v.playsInline=true;v.preload='auto';v.src=URL.createObjectURL(f);
+  await new Promise((ok,no)=>{v.onloadedmetadata=ok;v.onerror=()=>no(new Error('não abriu'))});
+  if(!v.captureStream&&!v.mozCaptureStream)throw new Error('sem captureStream');
+  const dest=ctxAudio.createMediaStreamDestination();
+  ctxAudio.createMediaElementSource(v).connect(dest); // som vai só para a gravação, não para o alto-falante
+  const vs=(v.captureStream||v.mozCaptureStream).call(v);
+  const stream=new MediaStream([...vs.getVideoTracks(),...dest.stream.getAudioTracks()]);
+  const partes=[];
+  const rec=new MediaRecorder(stream,{...(tipo?{mimeType:tipo}:{}),videoBitsPerSecond:BITRATE_V,audioBitsPerSecond:BITRATE_A});
+  rec.ondataavailable=e=>e.data.size&&partes.push(e.data);
+  const fim=new Promise(ok=>rec.onstop=ok);
+  v.ontimeupdate=()=>aoProgresso(Math.min(99,Math.round(100*v.currentTime/(v.duration||1))));
+  rec.start(1000);await v.play();
+  await new Promise(ok=>v.onended=ok);
+  rec.stop();await fim;URL.revokeObjectURL(v.src);
+  const t=mimeBase(rec.mimeType||tipo);
+  const novo=new File(partes,`orcamento-${Date.now()}.${extDe(t)}`,{type:t});
+  if(novo.size<1000||novo.size>=f.size)throw new Error('não reduziu');
+  return novo;
+}
+
+function pegarVideoSilencioso(f){video=f;$('prev').src=URL.createObjectURL(f);$('vidInfo').textContent=`${(f.size/1048576).toFixed(1)} MB`}
 function pegarVideo(f){
   if(!f)return;video=f;
   const p=$('prev');p.src=URL.createObjectURL(f);p.classList.remove('hide');
@@ -283,7 +361,7 @@ async function modelosParaTentar(){
 /* Uma chamada ao modelo */
 async function gerar(modelo,parte,v){
   const r=await buscar(urlIA(`/v1beta/models/${encodeURIComponent(modelo)}:generateContent`),{method:'POST',headers:hdr({'Content-Type':'application/json'}),
-    body:JSON.stringify({contents:[{parts:[parte,{text:prompt(v)}]}],generationConfig:{responseMimeType:'application/json',responseSchema:esquema,temperature:0.2}})});
+    body:JSON.stringify({contents:[{parts:[parte,{text:prompt(v,!!(parte.inline_data&&/^audio/.test(parte.inline_data.mime_type)))}]}],generationConfig:{responseMimeType:'application/json',responseSchema:esquema,temperature:0.2}})});
   const j=await r.json().catch(()=>null);
   if(!r.ok)throw erroGoogle(r.status,j);
   const c=j&&j.candidates&&j.candidates[0];
@@ -311,19 +389,19 @@ async function gerarComInsistencia(parte,v){
         if(t<2){
           const s=[5,15][t];
           for(let x=s;x>0;x--){etapaTxt(`${e.message} Tentando de novo em ${x}s…`);await espera(1000)}
-          etapaTxt('A IA está assistindo e ouvindo o vídeo');
+          etapaTxt('A IA está ouvindo o mecânico');
         }
       }
     }
-    if(mi<modelos.length-1){etapaTxt('Trocando para outra IA de reserva…');await espera(1500);etapaTxt('A IA (reserva) está assistindo e ouvindo o vídeo')}
+    if(mi<modelos.length-1){etapaTxt('Trocando para outra IA de reserva…');await espera(1500);etapaTxt('A IA reserva está ouvindo o mecânico')}
   }
   throw new ErroIA((ultimo&&ultimo.message||'A IA não respondeu.')+' Tentamos várias vezes. Espere uns minutos e toque em "Montar orçamento com IA" de novo — o vídeo não se perde.');
 }
 
-function prompt(v){
+function prompt(v,soAudio){
   const tabela=cat.length?cat.map((c,i)=>`${i}: ${c.desc}`).join('\n'):'(vazia)';
   return `Você é o orçamentista de uma oficina mecânica no Brasil.
-O vídeo foi gravado pelo mecânico mostrando o veículo e FALANDO o que encontrou e o que precisa ser feito.
+${soAudio?'O áudio foi gravado pelo mecânico FALANDO o que encontrou no veículo e o que precisa ser feito. A fala é a fonte principal.':'O vídeo foi gravado pelo mecânico mostrando o veículo e FALANDO o que encontrou e o que precisa ser feito.'}
 
 Veículo: ${v.modelo} ${v.ano} — placa ${v.placa}${v.km?` — ${v.km} km`:''}.
 
@@ -335,7 +413,7 @@ Tarefas:
 2. Liste os itens do orçamento: peças e serviços (mão de obra) necessários. Separe peça e mão de obra em itens diferentes. Use quantidade correta (ex.: amortecedores costumam ser trocados em par).
 3. Para cada item, se houver um item equivalente na tabela, informe o número em "tabela_id"; se não houver, use -1. Use a descrição da tabela quando houver correspondência.
 4. Prioridade: "urgente" (segurança ou pode piorar logo), "recomendado" ou "pode esperar".
-5. "motivo": frase curta com o que foi visto/falado. Se algo só aparece na imagem e o mecânico não falou, escreva "visto no vídeo, confirmar".
+5. "motivo": frase curta com o que foi falado${soAudio?"":" ou visto. Se algo só aparece na imagem e o mecânico não falou, escreva \"visto no vídeo, confirmar\""}.
 6. "resumo_cliente": 2 a 4 frases simples, para o dono do carro entender o que foi encontrado, sem termos técnicos difíceis.
 7. "alertas": dúvidas que o balconista precisa confirmar antes de enviar (ex.: lado do carro, marca da peça, item não claro no áudio). Lista vazia se não houver.
 Não invente defeitos. Não informe preços.`;
@@ -346,28 +424,68 @@ const esquema={type:'OBJECT',properties:{
   alertas:{type:'ARRAY',items:{type:'STRING'}}},
   required:['transcricao','resumo_cliente','itens','alertas']};
 
-let enviado=null; // reaproveita o vídeo já enviado se for tentar de novo
+/* Só o ÁUDIO vai para a IA (é a fala do mecânico que importa; o vídeo é a comprovação para o cliente).
+   Tira o som do vídeo no próprio celular e gera WAV 16 kHz mono: ~32 KB por segundo (26 s ≈ 0,8 MB). */
+async function extrairAudio(f){
+  const AC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  if(!AC)throw new Error('sem OfflineAudioContext');
+  const buf=await f.arrayBuffer();
+  const ctx=new AC(1,1,16000);
+  const ab=await new Promise((ok,no)=>{const pr=ctx.decodeAudioData(buf,ok,no);if(pr&&pr.then)pr.then(ok,no)});
+  // mistura os canais em mono e reamostra para 16 kHz
+  const n=Math.ceil(ab.duration*16000);
+  const off=new AC(1,n,16000);const src=off.createBufferSource();src.buffer=ab;src.connect(off.destination);src.start();
+  const mono=(await off.startRendering()).getChannelData(0);
+  let pico=0;for(let i=0;i<mono.length;i+=8)pico=Math.max(pico,Math.abs(mono[i]));
+  if(pico<0.01)throw new ErroIA('O vídeo está sem som. Grave de novo falando o que precisa ser feito.');
+  const dv=new DataView(new ArrayBuffer(44+mono.length*2));
+  const w=(o,t)=>{for(let i=0;i<t.length;i++)dv.setUint8(o+i,t.charCodeAt(i))};
+  w(0,'RIFF');dv.setUint32(4,36+mono.length*2,true);w(8,'WAVE');w(12,'fmt ');dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,1,true);
+  dv.setUint32(24,16000,true);dv.setUint32(28,32000,true);dv.setUint16(32,2,true);dv.setUint16(34,16,true);w(36,'data');dv.setUint32(40,mono.length*2,true);
+  for(let i=0;i<mono.length;i++){const x=Math.max(-1,Math.min(1,mono[i]));dv.setInt16(44+i*2,x<0?x*0x8000:x*0x7fff,true)}
+  return new Blob([dv],{type:'audio/wav'});
+}
+
+let enviado=null; // reaproveita o que já foi preparado/enviado se for tentar de novo
 async function analisar(){
   if(!cfg.key){toast('Coloque o código da oficina em ⚙️');return $('dCfg').showModal()}
   const v=veicAtual();if(!v||!video)return;
   if(!navigator.onLine){toast('Sem internet no aparelho');return}
   etapas.length=0;$('bAnalisar').disabled=true;
+  // reserva (caso o celular não consiga tirar o áudio): precisa ser criado já no toque do botão
+  let ctxAudio=null;
+  if(video.size>14*1048576&&!(enviado&&enviado.video===video)&&tipoGravacao()!==null){try{ctxAudio=new (window.AudioContext||window.webkitAudioContext)();ctxAudio.suspend()}catch(e){}}
   try{
-    const mime=video.type||'video/mp4';
     let parte;
-    if(enviado&&enviado.video===video&&Date.now()-enviado.quando<40*60000){parte=enviado.parte;etapa('Vídeo já enviado')}
-    else if(video.size<=14*1048576){etapa('Preparando o vídeo');parte={inline_data:{mime_type:mime,data:await b64(video)}};enviado={video,parte,quando:Date.now()}}
+    if(enviado&&enviado.video===video&&Date.now()-enviado.quando<40*60000){parte=enviado.parte;etapa('Áudio já preparado')}
     else{
-      etapa('Enviando o vídeo ('+(video.size/1048576).toFixed(0)+' MB)');
-      for(let t=0;;t++){try{parte=await enviarArquivo(video,mime);break}catch(e){if(t>=2||!e.repetir)throw e;etapaTxt('Conexão falhou, enviando o vídeo de novo…');await espera(4000)}}
+      etapa('Separando a fala do mecânico');
+      try{
+        const audio=await extrairAudio(video);
+        parte={inline_data:{mime_type:'audio/wav',data:await b64(audio)}};
+        etapaTxt(`Fala separada (${(audio.size/1048576).toFixed(1)} MB em vez de ${(video.size/1048576).toFixed(0)} MB)`);
+      }catch(e){
+        if(e instanceof ErroIA)throw e;
+        // reserva: manda o vídeo (reduzido se for grande)
+        if(ctxAudio){
+          etapaTxt('Deixando o vídeo mais leve (0%)');
+          try{await ctxAudio.resume();const leve=await reduzirVideo(video,ctxAudio,pc=>etapaTxt(`Deixando o vídeo mais leve (${pc}%)`));pegarVideoSilencioso(leve)}catch(e2){}
+        }
+        const mime=video.type||'video/mp4';
+        if(video.size<=14*1048576){etapaTxt('Preparando o vídeo');parte={inline_data:{mime_type:mime,data:await b64(video)}}}
+        else{
+          etapaTxt('Enviando o vídeo ('+(video.size/1048576).toFixed(0)+' MB)');
+          for(let t=0;;t++){try{parte=await enviarArquivo(video,mime);break}catch(e3){if(t>=2||!e3.repetir)throw e3;etapaTxt('Conexão falhou, enviando o vídeo de novo…');await espera(4000)}}
+        }
+      }
       enviado={video,parte,quando:Date.now()};
     }
-    etapa('A IA está assistindo e ouvindo o vídeo');
+    etapa('A IA está ouvindo o mecânico');
     const res=await gerarComInsistencia(parte,v);
     etapa('Orçamento montado');etapa('Confira os itens e os preços abaixo','ok');
     montar(res,v);
   }catch(e){etapa(e instanceof ErroIA?e.message:'Algo deu errado: '+(e.message||e)+'. Toque em "Montar orçamento com IA" de novo.','err')}
-  finally{podeAnalisar()}
+  finally{podeAnalisar();if(ctxAudio)try{ctxAudio.close()}catch(e){}}
 }
 
 /* ---------- Orçamento ---------- */
@@ -476,7 +594,7 @@ $('selVeic').onchange=mostrarVeic;
 $('bNovoVeic').onclick=()=>abrirVeic(null);
 $('bEditVeic').onclick=()=>abrirVeic(veicAtual());
 $('bVeicOk').onclick=salvarVeic;$('bVeicCanc').onclick=()=>$('dVeic').close();
-$('bGravar').onclick=()=>$('fGravar').click();$('bGaleria').onclick=()=>$('fGaleria').click();
+$('bGravar').onclick=abrirCamera;$('camX').onclick=fecharCamera;$('camRec').onclick=alternarGravacao;$('bGaleria').onclick=()=>$('fGaleria').click();
 $('fGravar').onchange=e=>pegarVideo(e.target.files[0]);$('fGaleria').onchange=e=>pegarVideo(e.target.files[0]);
 $('bAnalisar').onclick=analisar;
 $('itens').addEventListener('input',e=>{const el=e.target,k=el.closest('.item')?.dataset.k;if(k==null||!el.dataset.f)return;const i=atual.itens[k];

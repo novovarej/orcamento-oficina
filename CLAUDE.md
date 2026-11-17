@@ -32,6 +32,13 @@ Produto que o Tiago (Novo Varejo) pretende vender para oficinas de Botucatu e re
 - No app, campo "Código da oficina"; se o valor começar com `AIza`, usa o Google direto (modo teste).
 - Testado com `wrangler dev` + Google simulado (`GOOGLE_API` em `.dev.vars`) + Playwright.
 
+## Só o áudio vai para a IA (v0.5, 17/11/2026)
+- Tiago: "o vídeo é só comprovação; o que importa é o áudio, onde o mecânico explica tudo".
+- O app extrai o som do vídeo no celular (`decodeAudioData` + `OfflineAudioContext`) → WAV 16 kHz mono (~32 KB/s; 26 s ≈ 0,8 MB) e manda só isso, inline. O vídeo original segue para o cliente pelo WhatsApp.
+- Vídeo sem som → aviso para gravar de novo. Se o aparelho não conseguir extrair o áudio, reserva: manda o vídeo (reduzido a ~1,2 Mbps se > 14 MB, ou upload).
+- Botão Gravar abre câmera dentro do app (MediaRecorder, 720p ~2,5 Mbps, até 3 min); sem permissão/aparelho antigo → câmera do sistema.
+- No 1º teste real pelo servidor (31 MB, 4G), o upload falhou uma vez e o app reenviou sozinho; ficou lento — motivo desta mudança.
+
 ## Pendências conhecidas
 - Falta o teste real com a chave Gemini (vídeo do HB20 deu 503 na v0.2).
 - Tiago precisa criar a conta Cloudflare e conectar o repo (passo a passo no README).
