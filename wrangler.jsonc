@@ -1,0 +1,13 @@
+{
+  // Orçamento Rápido — configuração do Cloudflare Workers
+  "name": "orcamento-rapido",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
+  "observability": { "enabled": true },
+  "vars": {
+    // Códigos de acesso das oficinas: "CÓDIGO": "Nome da oficina". Pode editar no painel do Cloudflare.
+    "OFICINAS": "{\"PILOTO-GVG4W\":\"Oficina piloto\"}"
+  }
+  // A chave do Gemini NÃO fica aqui: cadastre no painel como segredo com o nome GEMINI_KEY.
+}
