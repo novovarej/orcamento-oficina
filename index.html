@@ -154,7 +154,8 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
 function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),2600)}
 
-let cfg=S.get('cfg',{nome:'',fone:'',cnpj:'',end:'',num:1,key:'',modelo:'gemini-3.8-flash'});
+const MODELO_PADRAO='gemini-3.8-flash';
+let cfg=S.get('cfg',{nome:'',fone:'',cnpj:'',end:'',num:1,key:'',modelo:MODELO_PADRAO});
 let veics=S.get('veics',[]);
 let cat=S.get('cat',[]); // [{desc,valor}]
 let hist=S.get('hist',[]);
@@ -201,23 +202,114 @@ function podeAnalisar(){$('bAnalisar').disabled=!(video&&veicAtual())}
 const API='https://generativelanguage.googleapis.com';
 const etapas=[];
 function etapa(t,cls='on'){etapas.forEach(e=>e.cls==='on'&&(e.cls='ok'));etapas.push({t,cls});$('prog').innerHTML=etapas.map(e=>`<div class="${e.cls}">${e.cls==='ok'?'✓':e.cls==='err'?'✗':'…'} ${esc(e.t)}</div>`).join('')}
+function etapaTxt(t){const e=etapas[etapas.length-1];if(!e)return etapa(t);e.t=t;$('prog').innerHTML=etapas.map(x=>`<div class="${x.cls}">${x.cls==='ok'?'✓':x.cls==='err'?'✗':'…'} ${esc(x.t)}</div>`).join('')}
 const b64=blob=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(blob)});
 const espera=ms=>new Promise(r=>setTimeout(r,ms));
 
+/* Erro "amigável": guarda se vale a pena tentar de novo e o código HTTP */
+class ErroIA extends Error{constructor(msg,{repetir=false,trocar=false,status=0}={}){super(msg);this.repetir=repetir;this.trocar=trocar;this.status=status}}
+
+/* Traduz a resposta de erro do Google para português */
+function erroGoogle(status,j){
+  const m=(j&&j.error&&j.error.message)||'';const st=(j&&j.error&&j.error.status)||'';
+  if(status===400&&/API key|API_KEY/i.test(m))return new ErroIA('A chave da IA não é válida. Confira em ⚙️ Configurações.');
+  if(status===403)return new ErroIA('A chave da IA não tem permissão. Confira em ⚙️ Configurações.');
+  if(status===404)return new ErroIA('Modelo de IA não encontrado.',{trocar:true,status});
+  if(status===429)return new ErroIA('A IA atingiu o limite de uso por minuto.',{repetir:true,trocar:true,status});
+  if(status===503||st==='UNAVAILABLE')return new ErroIA('A IA do Google está congestionada.',{repetir:true,trocar:true,status});
+  if(status>=500)return new ErroIA('Falha temporária no servidor da IA.',{repetir:true,trocar:true,status});
+  if(status===413)return new ErroIA('Vídeo grande demais. Grave um vídeo mais curto (até 1 minuto).');
+  return new ErroIA('Erro da IA ('+status+'): '+m);
+}
+
+/* fetch com tempo limite e erro de rede amigável */
+async function buscar(url,opt={},ms=180000){
+  const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);
+  try{return await fetch(url,{...opt,signal:c.signal})}
+  catch(e){throw new ErroIA(e.name==='AbortError'?'A IA demorou demais para responder.':'Sem internet ou conexão instável.',{repetir:true})}
+  finally{clearTimeout(t)}
+}
+
 async function enviarArquivo(blob,mime){
-  const ini=await fetch(`${API}/upload/v1beta/files?key=${encodeURIComponent(cfg.key)}`,{method:'POST',headers:{'X-Goog-Upload-Protocol':'resumable','X-Goog-Upload-Command':'start','X-Goog-Upload-Header-Content-Length':String(blob.size),'X-Goog-Upload-Header-Content-Type':mime,'Content-Type':'application/json'},body:JSON.stringify({file:{display_name:'orcamento-video'}})});
-  if(!ini.ok)throw new Error('Falha ao enviar o vídeo ('+ini.status+')');
+  const k=encodeURIComponent(cfg.key);
+  const ini=await buscar(`${API}/upload/v1beta/files?key=${k}`,{method:'POST',headers:{'X-Goog-Upload-Protocol':'resumable','X-Goog-Upload-Command':'start','X-Goog-Upload-Header-Content-Length':String(blob.size),'X-Goog-Upload-Header-Content-Type':mime,'Content-Type':'application/json'},body:JSON.stringify({file:{display_name:'orcamento-video'}})},60000);
+  if(!ini.ok)throw erroGoogle(ini.status,await ini.json().catch(()=>null));
   const url=ini.headers.get('x-goog-upload-url');
-  if(!url)throw new Error('Vídeo grande demais para este aparelho. Grave um vídeo mais curto (até 1 minuto).');
-  const up=await fetch(url,{method:'POST',headers:{'X-Goog-Upload-Offset':'0','X-Goog-Upload-Command':'upload, finalize'},body:blob});
-  if(!up.ok)throw new Error('Falha ao enviar o vídeo ('+up.status+')');
+  if(!url)throw new ErroIA('Não deu para enviar o vídeo por este navegador. Use o Chrome atualizado.');
+  const up=await buscar(url,{method:'POST',headers:{'X-Goog-Upload-Offset':'0','X-Goog-Upload-Command':'upload, finalize'},body:blob},600000);
+  if(!up.ok)throw erroGoogle(up.status,await up.json().catch(()=>null));
   let f=(await up.json()).file;
-  for(let i=0;i<60&&f.state!=='ACTIVE';i++){
-    if(f.state==='FAILED')throw new Error('A IA não conseguiu ler o vídeo');
+  for(let i=0;i<90&&f.state!=='ACTIVE';i++){
+    if(f.state==='FAILED')throw new ErroIA('A IA não conseguiu ler este vídeo. Grave de novo.');
     await espera(2000);
-    f=await(await fetch(`${API}/v1beta/${f.name}?key=${encodeURIComponent(cfg.key)}`)).json();
+    const r=await buscar(`${API}/v1beta/${f.name}?key=${k}`,{},30000);
+    if(r.ok)f=await r.json();
   }
+  if(f.state!=='ACTIVE')throw new ErroIA('O vídeo demorou demais para ser processado. Tente de novo.',{repetir:true});
   return {file_data:{mime_type:mime,file_uri:f.uri}};
+}
+
+/* Lista de modelos: o escolhido primeiro, depois outros "flash" disponíveis na chave (reserva) */
+let reservaCache=null;
+async function modelosParaTentar(){
+  const principal=(cfg.modelo||MODELO_PADRAO).replace(/^models\//,'');
+  if(!reservaCache){
+    reservaCache=[];
+    try{
+      const r=await buscar(`${API}/v1beta/models?pageSize=200&key=${encodeURIComponent(cfg.key)}`,{},15000);
+      if(r.ok){
+        const j=await r.json();
+        const ok=(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent'))
+          .map(m=>m.name.replace(/^models\//,''))
+          .filter(n=>/gemini/i.test(n)&&/flash|pro/i.test(n)&&!/(image|tts|audio|live|embed|thinking-exp|robotics|computer|native)/i.test(n));
+        // estáveis antes de preview/exp; flash antes de pro (mais rápido e barato); versões mais novas primeiro
+        const peso=n=>(/preview|exp/i.test(n)?10:0)+(/pro/i.test(n)?5:0)+(/lite/i.test(n)?2:0);
+        const ver=n=>parseFloat((n.match(/gemini-(\d+(\.\d+)?)/)||[])[1]||0);
+        reservaCache=ok.sort((a,b)=>peso(a)-peso(b)||ver(b)-ver(a));
+      }
+    }catch(e){}
+  }
+  return [principal,...reservaCache.filter(n=>n!==principal)].slice(0,4);
+}
+
+/* Uma chamada ao modelo */
+async function gerar(modelo,parte,v){
+  const r=await buscar(`${API}/v1beta/models/${encodeURIComponent(modelo)}:generateContent?key=${encodeURIComponent(cfg.key)}`,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{parts:[parte,{text:prompt(v)}]}],generationConfig:{responseMimeType:'application/json',responseSchema:esquema,temperature:0.2}})});
+  const j=await r.json().catch(()=>null);
+  if(!r.ok)throw erroGoogle(r.status,j);
+  const c=j&&j.candidates&&j.candidates[0];
+  if(!c){const b=j&&j.promptFeedback&&j.promptFeedback.blockReason;throw new ErroIA(b?'A IA recusou este vídeo. Grave de novo, mostrando só o carro.':'A IA não respondeu nada.',{repetir:!b})}
+  const txt=(c.content&&c.content.parts||[]).map(p=>p.text||'').join('');
+  try{
+    const res=JSON.parse(txt);
+    if(!Array.isArray(res.itens))throw 0;
+    return res;
+  }catch(e){throw new ErroIA('A IA respondeu fora do formato.',{repetir:true})}
+}
+
+/* Tenta várias vezes, com espera crescente, e troca de modelo se o principal estiver congestionado */
+async function gerarComInsistencia(parte,v){
+  const modelos=await modelosParaTentar();
+  let ultimo;
+  for(let mi=0;mi<modelos.length;mi++){
+    const modelo=modelos[mi];
+    for(let t=0;t<3;t++){
+      try{return await gerar(modelo,parte,v)}
+      catch(e){
+        ultimo=e;
+        if(!(e instanceof ErroIA)||(!e.repetir&&!e.trocar))throw e;
+        if(e.status===404||!e.repetir)break;           // modelo não existe: vai direto para o próximo
+        if(t<2){
+          const s=[5,15][t];
+          for(let x=s;x>0;x--){etapaTxt(`${e.message} Tentando de novo em ${x}s…`);await espera(1000)}
+          etapaTxt('A IA está assistindo e ouvindo o vídeo');
+        }
+      }
+    }
+    if(mi<modelos.length-1){etapaTxt('Trocando para outra IA de reserva…');await espera(1500);etapaTxt('A IA (reserva) está assistindo e ouvindo o vídeo')}
+  }
+  throw new ErroIA((ultimo&&ultimo.message||'A IA não respondeu.')+' Tentamos várias vezes. Espere uns minutos e toque em "Montar orçamento com IA" de novo — o vídeo não se perde.');
 }
 
 function prompt(v){
@@ -246,25 +338,27 @@ const esquema={type:'OBJECT',properties:{
   alertas:{type:'ARRAY',items:{type:'STRING'}}},
   required:['transcricao','resumo_cliente','itens','alertas']};
 
+let enviado=null; // reaproveita o vídeo já enviado se for tentar de novo
 async function analisar(){
   if(!cfg.key){toast('Coloque a chave da IA em ⚙️');return $('dCfg').showModal()}
   const v=veicAtual();if(!v||!video)return;
+  if(!navigator.onLine){toast('Sem internet no aparelho');return}
   etapas.length=0;$('bAnalisar').disabled=true;
   try{
     const mime=video.type||'video/mp4';
     let parte;
-    if(video.size<=14*1048576){etapa('Preparando o vídeo');parte={inline_data:{mime_type:mime,data:await b64(video)}}}
-    else{etapa('Enviando o vídeo ('+(video.size/1048576).toFixed(0)+' MB)');parte=await enviarArquivo(video,mime)}
+    if(enviado&&enviado.video===video&&Date.now()-enviado.quando<40*60000){parte=enviado.parte;etapa('Vídeo já enviado')}
+    else if(video.size<=14*1048576){etapa('Preparando o vídeo');parte={inline_data:{mime_type:mime,data:await b64(video)}};enviado={video,parte,quando:Date.now()}}
+    else{
+      etapa('Enviando o vídeo ('+(video.size/1048576).toFixed(0)+' MB)');
+      for(let t=0;;t++){try{parte=await enviarArquivo(video,mime);break}catch(e){if(t>=2||!e.repetir)throw e;etapaTxt('Conexão falhou, enviando o vídeo de novo…');await espera(4000)}}
+      enviado={video,parte,quando:Date.now()};
+    }
     etapa('A IA está assistindo e ouvindo o vídeo');
-    const r=await fetch(`${API}/v1beta/models/${encodeURIComponent(cfg.modelo||'gemini-3.8-flash')}:generateContent?key=${encodeURIComponent(cfg.key)}`,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({contents:[{parts:[parte,{text:prompt(v)}]}],generationConfig:{responseMimeType:'application/json',responseSchema:esquema,temperature:0.2}})});
-    const j=await r.json();
-    if(!r.ok)throw new Error(j.error?.message||('Erro da IA ('+r.status+')'));
-    const txt=j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
-    const res=JSON.parse(txt);
+    const res=await gerarComInsistencia(parte,v);
     etapa('Orçamento montado');etapa('Confira os itens e os preços abaixo','ok');
     montar(res,v);
-  }catch(e){etapa(e.message||String(e),'err')}
+  }catch(e){etapa(e instanceof ErroIA?e.message:'Algo deu errado: '+(e.message||e)+'. Toque em "Montar orçamento com IA" de novo.','err')}
   finally{podeAnalisar()}
 }
 
@@ -357,7 +451,7 @@ function abrirCfg(){
   $('dCfg').showModal();
 }
 function salvarCfg(){
-  cfg={nome:$('cNome').value.trim(),fone:$('cFone').value.trim(),cnpj:$('cCnpj').value.trim(),end:$('cEnd').value.trim(),num:parseInt($('cNum').value)||1,key:$('cKey').value.trim(),modelo:$('cModelo').value.trim()||'gemini-3.8-flash'};
+  cfg={nome:$('cNome').value.trim(),fone:$('cFone').value.trim(),cnpj:$('cCnpj').value.trim(),end:$('cEnd').value.trim(),num:parseInt($('cNum').value)||1,key:$('cKey').value.trim(),modelo:$('cModelo').value.trim()||MODELO_PADRAO};reservaCache=null;
   cat=$('cCat').value.split('\n').map(l=>{const p=l.split(';');return{desc:p[0].trim(),valor:num(p[1])}}).filter(c=>c.desc);
   S.set('cfg',cfg);S.set('cat',cat);$('dCfg').close();checarCfg();toast('Configurações salvas');
 }

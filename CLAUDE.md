@@ -19,6 +19,12 @@ Produto que o Tiago (Novo Varejo) pretende vender para oficinas de Botucatu e re
 - Precisa abrir por **https** (câmera e compartilhamento não funcionam em arquivo local nem dentro de artifact).
 - `versao-0.1-manual.html`: v0.1, orçamento digitado no computador.
 
+## Resiliência da IA (v0.3, 17/11/2026)
+- Erro 503 "high demand" do Gemini apareceu no 1º teste real (HB20). Agora: até 3 tentativas por modelo (espera 5s e 15s, com contagem na tela), depois troca para modelo de reserva (lista `models` da própria chave, só gemini flash/pro estáveis, até 4 modelos).
+- Erros traduzidos para português (chave inválida, limite 429, congestionado, sem internet, tempo esgotado, resposta fora do formato).
+- Vídeo enviado é reaproveitado por 40 min se o balconista tocar de novo — não reenvia 30 MB.
+- Testado com respostas simuladas (Playwright): ok, 503 só no principal → reserva, tudo 503, chave inválida.
+
 ## Pendências conhecidas
 - Testado só com IA simulada (vídeo do Honda CR-V); falta o teste real com a chave Gemini.
 - A chave fica no aparelho: ok para piloto; para vender, mover a chamada da IA para um servidor.
