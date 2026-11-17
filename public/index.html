@@ -336,7 +336,7 @@ async function enviarArquivo(blob,mime){
 }
 
 /* Lista de modelos: o escolhido primeiro, depois outros "flash" disponíveis na chave (reserva) */
-let reservaCache=null;testarCodigo();
+let reservaCache=null;S.set('modeloOk','');S.set('modelosRuins',[]);testarCodigo();
 async function modelosParaTentar(){
   const principal=(cfg.modelo||MODELO_PADRAO).replace(/^models\//,'');
   if(!reservaCache){
@@ -347,7 +347,7 @@ async function modelosParaTentar(){
         const j=await r.json();
         const ok=(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent'))
           .map(m=>m.name.replace(/^models\//,''))
-          .filter(n=>/gemini/i.test(n)&&/flash|pro/i.test(n)&&!/(image|tts|audio|live|embed|thinking-exp|robotics|computer|native)/i.test(n));
+          .filter(n=>/gemini/i.test(n)&&!/(image|tts|live|embed|thinking-exp|robotics|computer|native|aqa|vision)/i.test(n));
         // estáveis antes de preview/exp; flash antes de pro (mais rápido e barato); versões mais novas primeiro
         const peso=n=>(/preview|exp/i.test(n)?10:0)+(/pro/i.test(n)?5:0)+(/lite/i.test(n)?2:0);
         const ver=n=>parseFloat((n.match(/gemini-(\d+(\.\d+)?)/)||[])[1]||0);
@@ -355,7 +355,9 @@ async function modelosParaTentar(){
       }
     }catch(e){}
   }
-  return [principal,...reservaCache.filter(n=>n!==principal)].slice(0,4);
+  // se o modelo configurado não existe nesta chave, usa direto os disponíveis (sem perder tempo com erro)
+  if(reservaCache.length&&!reservaCache.includes(principal))return reservaCache.slice(0,6);
+  return [principal,...reservaCache.filter(n=>n!==principal)].slice(0,6);
 }
 
 /* Uma chamada ao modelo */
@@ -392,27 +394,32 @@ async function gerar(modelo,parte,v){
 }
 
 /* Tenta várias vezes, com espera crescente, e troca de modelo se o principal estiver congestionado */
+/* Estratégia rápida: 1ª rodada passa por todas as IAs disponíveis SEM esperar (a que funcionou da última vez vem primeiro);
+   só se todas falharem, 2ª rodada com uma pausa. Modelo inexistente (404) é esquecido. */
 async function gerarComInsistencia(parte,v){
-  const modelos=await modelosParaTentar();
+  let modelos=await modelosParaTentar();
+  const ok=S.get('modeloOk','');
+  if(ok&&modelos.includes(ok))modelos=[ok,...modelos.filter(m=>m!==ok)];
+  else if(ok&&!modelos.includes(ok))modelos=[ok,...modelos];
+  const ruins=new Set(S.get('modelosRuins',[]));
+  modelos=modelos.filter(m=>!ruins.has(m));
+  if(!modelos.length)modelos=[MODELO_PADRAO];
   let ultimo;
-  for(let mi=0;mi<modelos.length;mi++){
-    const modelo=modelos[mi];
-    for(let t=0;t<3;t++){
-      try{return await gerar(modelo,parte,v)}
+  for(let rodada=0;rodada<2;rodada++){
+    if(rodada){for(let x=10;x>0;x--){etapaTxt(`IA congestionada. Tentando de novo em ${x}s…`);await espera(1000)}}
+    for(let mi=0;mi<modelos.length;mi++){
+      const modelo=modelos[mi];
+      if(rodada&&ruins.has(modelo))continue;
+      if(mi||rodada)etapaTxt(`Trocando para outra IA (${mi+1}/${modelos.length})…`);
+      try{const res=await gerar(modelo,parte,v);S.set('modeloOk',modelo);return res}
       catch(e){
         ultimo=e;
         if(!(e instanceof ErroIA)||(!e.repetir&&!e.trocar))throw e;
-        if(e.status===404||!e.repetir)break;           // modelo não existe: vai direto para o próximo
-        if(t<2){
-          const s=[5,15][t];
-          for(let x=s;x>0;x--){etapaTxt(`${e.message} Tentando de novo em ${x}s…`);await espera(1000)}
-          etapaTxt('A IA está ouvindo o mecânico');
-        }
+        if(e.status===404){ruins.add(modelo);S.set('modelosRuins',[...ruins]);if(S.get('modeloOk','')===modelo)S.set('modeloOk','')}
       }
     }
-    if(mi<modelos.length-1){etapaTxt('Trocando para outra IA de reserva…');await espera(1500);etapaTxt('A IA reserva está ouvindo o mecânico')}
   }
-  throw new ErroIA((ultimo&&ultimo.message||'A IA não respondeu.')+' Tentamos várias vezes. Espere uns minutos e toque em "Montar orçamento com IA" de novo — o vídeo não se perde.');
+  throw new ErroIA((ultimo&&ultimo.message||'A IA não respondeu.')+' Tentamos todas as IAs disponíveis. Espere uns minutos e toque em "Montar orçamento com IA" de novo — o vídeo não se perde.');
 }
 
 function prompt(v,soAudio){

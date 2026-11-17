@@ -43,6 +43,11 @@ Produto que o Tiago (Novo Varejo) pretende vender para oficinas de Botucatu e re
 - Com o áudio (0,8 MB) a demora passou a ser a resposta da IA. Agora vai `thinkingConfig` baixo (`thinkingLevel:'low'`; na 2.5 `thinkingBudget` 0/128); se o modelo recusar (400 com "think"), repete sem o ajuste.
 - Contador de segundos na tela enquanto a IA responde; ao final mostra o tempo e o modelo usado (para diagnosticar lentidão).
 
+## Escolha rápida da IA (v0.7, 17/11/2026)
+- No teste real o principal (`gemini-3.8-flash`) falhou e o app esperou 5s+15s antes da reserva — lento. A chave do Tiago mostra no AI Studio o "Gemini 4 Hydrogen" (`gemini-4-hydrogen`).
+- Agora: lista de modelos da chave aceita qualquer gemini de texto (não só flash/pro); se o modelo configurado não existe na chave, usa direto os disponíveis; 1ª rodada passa por todos sem esperar, 2ª rodada após 10s.
+- Guarda em localStorage `orv_modeloOk` (o que funcionou, tentado primeiro) e `orv_modelosRuins` (404). Salvar ⚙️ zera os dois.
+
 ## Pendências conhecidas
 - Falta o teste real com a chave Gemini (vídeo do HB20 deu 503 na v0.2).
 - Tiago precisa criar a conta Cloudflare e conectar o repo (passo a passo no README).
