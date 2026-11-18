@@ -141,7 +141,7 @@ dialog h3{margin:0 0 6px}
   <label>Endereço</label><input id="cEnd">
   <label>Próximo nº de orçamento</label><input id="cNum" inputmode="numeric">
   <label>Código da oficina</label><input id="cKey" autocomplete="off" autocapitalize="characters" placeholder="ex.: OFICINA-ZE-4821">
-  <div class="mut">Fornecido pela Zonta IA · versão 1.1</div>
+  <div class="mut">Fornecido pela Zonta IA · versão 1.2</div>
   <button class="btn" id="bTestarIA" type="button">🔎 Testar IAs (velocidade)</button>
   <div id="testeIA" class="mut" style="white-space:pre-line;margin-top:6px"></div>
   <label>Modelo da IA</label><input id="cModelo">
@@ -412,8 +412,9 @@ async function gerar(modelo,parte,v,tmo=45000,semSchema=false){
 /* Etapa 1: transcrever a fala com a IA própria para isso (gemini-*-transcribe); reserva: Hydrogen. */
 async function transcrever(parte,mostrar=true){
   await modelosParaTentar();
-  const lista=[...(reservaCache||[]).filter(m=>/transcri/i.test(m)),'gemini-3.5-transcribe',MODELO_PADRAO].filter((m,i,a)=>a.indexOf(m)===i);
-  let ultimo;
+  const tr=[...(reservaCache||[]).filter(m=>/transcri/i.test(m)),'gemini-3.5-transcribe'].filter((m,i,a)=>a.indexOf(m)===i);
+  const lista=[...tr,...tr,MODELO_PADRAO]; // tenta a de transcrição 2x (às vezes dá 503 na 1ª), depois o Hydrogen
+  let ultimo,vazios=0;
   for(const modelo of lista){
     const ini=Date.now();
     const tic=mostrar?setInterval(()=>etapaTxt(`Transcrevendo a fala… ${Math.round((Date.now()-ini)/1000)}s`),1000):null;
@@ -422,13 +423,16 @@ async function transcrever(parte,mostrar=true){
         body:JSON.stringify({contents:[{parts:[parte,{text:'Transcreva fielmente, em português do Brasil, tudo o que é falado neste áudio de um mecânico de automóveis. Responda somente com a transcrição.'}]}],generationConfig:{temperature:0,...(/transcri/i.test(modelo)?{}:modoRapido(modelo))}})},40000);
       const j=await r.json().catch(()=>null);
       if(!r.ok)throw erroGoogle(r.status,j);
-      const txt=((j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[]).map(p=>p.text||'').join('').trim();
+      // a IA de transcrição devolve em parts[].audioTranscription.text (não em parts[].text)
+      const txt=((j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[]).map(p=>p.text||(p.audioTranscription&&p.audioTranscription.text)||'').join(' ').trim();
       console.log('[transcrição]',modelo,((Date.now()-ini)/1000).toFixed(1)+'s',txt.length,'caracteres');
-      if(txt.length<3)throw new ErroIA('Não deu para entender a fala do mecânico. Grave de novo, falando perto do celular.');
+      if(txt.length<3){vazios++;throw new ErroIA('Transcrição vazia ('+modelo+')',{repetir:true})} // vazio: tenta a próxima IA
       return {texto:txt,modelo,seg:Math.round((Date.now()-ini)/1000)};
-    }catch(e){ultimo=e;if(e instanceof ErroIA&&/entender a fala/.test(e.message))throw e}
+    }catch(e){ultimo=e}
     finally{if(tic)clearInterval(tic)}
   }
+  // todas devolveram vazio: aí sim provavelmente não há fala; senão, deixa o app tentar o áudio direto
+  if(vazios===lista.length)throw new ErroIA('Não deu para entender a fala do mecânico. Grave de novo, falando perto do celular.');
   throw ultimo||new ErroIA('Não deu para transcrever a fala.',{repetir:true});
 }
 
@@ -561,7 +565,7 @@ async function analisar(){
         const ehAudio=p.parte.inline_data&&/^audio/.test(p.parte.inline_data.mime_type);
         if(!ehAudio){falhou=true;return}
         try{p.tr=await transcrever(p.parte,tot===1)}
-        catch(e){if(e instanceof ErroIA&&/entender a fala/.test(e.message))throw new ErroIA((tot>1?`Vídeo ${i+1}: `:'')+e.message);falhou=true}
+        catch(e){console.log('[transcrição falhou]',e.message);falhou=true} // reserva: áudio direto para a IA que monta
       }));
     }finally{if(ticTot)clearInterval(ticTot)}
 
