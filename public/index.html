@@ -36,6 +36,7 @@ video{width:100%;max-height:340px;border-radius:12px;background:#000;margin-top:
 .item .mot{font-size:13px;color:var(--mut);margin-top:2px}
 .item .g{display:grid;grid-template-columns:70px 1fr 1.2fr;gap:6px;margin-top:8px}
 .item .g input,.item .g select{padding:8px;font-size:15px}
+.item.sug{border-color:#e0a100;background:#fffbea}.item .sugn{color:#8a6100}
 .item.semp{border-color:var(--warn);background:#fff5f5}
 .x{background:none;border:0;color:var(--warn);font-size:20px;padding:0 4px}
 .tag{font-size:12px;border-radius:20px;padding:2px 8px;white-space:nowrap}
@@ -141,13 +142,16 @@ dialog h3{margin:0 0 6px}
   <label>Endereço</label><input id="cEnd">
   <label>Próximo nº de orçamento</label><input id="cNum" inputmode="numeric">
   <label>Código da oficina</label><input id="cKey" autocomplete="off" autocapitalize="characters" placeholder="ex.: OFICINA-ZE-4821">
-  <div class="mut">Fornecido pela Zonta IA · versão 1.4</div>
+  <div class="mut">Fornecido pela Zonta IA · versão 1.6</div>
   <button class="btn" id="bTestarIA" type="button">🔎 Testar IAs (velocidade)</button>
   <div id="testeIA" class="mut" style="white-space:pre-line;margin-top:6px"></div>
   <label>Modelo da IA</label><input id="cModelo">
   <label>Tabela de preços (uma por linha: descrição ; valor)</label>
+  <button class="btn" id="bImportar" type="button">📥 Importar planilha de preços (Excel ou CSV)</button>
+  <input type="file" id="fTabela" accept=".csv,.txt,.tsv,.xlsx,.xls,.ods,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden>
+  <div id="impInfo" class="mut" style="margin:6px 0"></div>
   <textarea id="cCat" style="min-height:160px" placeholder="Amortecedor dianteiro ; 450,00&#10;Mão de obra troca de amortecedor (par) ; 250,00&#10;Alinhamento ; 100,00"></textarea>
-  <div class="mut">Os preços que você corrigir nos orçamentos entram aqui sozinhos.</div>
+  <div class="mut">Pode também copiar do Excel e colar aqui. Os preços que você corrigir nos orçamentos entram aqui sozinhos.</div>
   <div class="two" style="margin-top:12px"><button class="btn" id="bCfgCanc">Fechar</button><button class="btn pri" id="bCfgOk">Salvar</button></div>
 </div></dialog>
 
@@ -620,11 +624,28 @@ async function analisar(){
 function precoDe(desc,id){
   if(id>=0&&cat[id])return{desc:cat[id].desc,valor:cat[id].valor};
   const n=norm(desc),c=cat.find(c=>norm(c.desc)===n);
-  return c?{desc:c.desc,valor:c.valor}:{desc,valor:0};
+  if(c)return{desc:c.desc,valor:c.valor};
+  return sugerirPreco(desc)||{desc,valor:0};
+}
+/* Item sem preço na tabela: procura um parecido na tabela e nos orçamentos anteriores e SUGERE o preço (marcado para conferir) */
+const PARADAS=new Set('de da do das dos e a o em para com troca trocar substituir servico peca mao obra kit jogo par lado esquerdo esquerda direito direita ld le original'.split(' '));
+const toks=s=>new Set(norm(String(s).replace(/\([^)]*\)/g,' ')).split(' ').filter(w=>w.length>1&&!PARADAS.has(w)));
+const eixo=s=>/diant/i.test(s)?'d':/tras/i.test(s)?'t':'';
+function parecido(a,b){if(eixo(a)&&eixo(b)&&eixo(a)!==eixo(b))return 0;const A=toks(a),B=toks(b);if(!A.size||!B.size)return 0;let i=0;for(const w of A)if(B.has(w))i++;return i/(A.size+B.size-i)}
+function sugerirPreco(desc){
+  const ehMO=/m[aã]o de obra|servi[cç]o|troca|instala|regulag|alinhamento|balanceamento|limpeza/i.test(desc);
+  const mesmoTipo=d=>/m[aã]o de obra|servi[cç]o|troca|instala|regulag|alinhamento|balanceamento|limpeza/i.test(d)===ehMO;
+  let melhor=null;
+  for(const c of cat){if(!c.valor||!mesmoTipo(c.desc))continue;const sc=parecido(desc,c.desc);if(sc>=0.6&&(!melhor||sc>melhor.sc))melhor={sc,valor:c.valor,de:`tabela: ${c.desc}`}}
+  for(let h=hist.length-1;h>=0;h--)for(const it of hist[h].itens||[]){
+    if(!it.valor||!mesmoTipo(it.desc))continue;const sc=parecido(desc,it.desc);
+    if(sc>=0.6&&(!melhor||sc>melhor.sc+0.05))melhor={sc,valor:it.valor,de:`orçamento nº ${hist[h].num}: ${it.desc}`};
+  }
+  return melhor?{desc,valor:melhor.valor,sug:melhor.de}:null;
 }
 function montar(res,v){
   atual={num:cfg.num,data:new Date().toISOString(),veic:{...v},resumo:res.resumo_cliente||'',transcricao:res.transcricao||'',alertas:res.alertas||[],
-    itens:(res.itens||[]).map(i=>{const p=precoDe(i.descricao,i.tabela_id);return{tipo:i.tipo,desc:p.desc,qtd:i.quantidade||1,valor:p.valor,prio:i.prioridade,motivo:i.motivo}}),
+    itens:(res.itens||[]).map(i=>{const p=precoDe(i.descricao,i.tabela_id);return{tipo:i.tipo,desc:p.desc,qtd:i.quantidade||1,valor:p.valor,prio:i.prioridade,motivo:i.motivo,...(p.sug?{sug:p.sug}:{})}}),
     validade:7,prazo:''};
   mostrarOrc();
 }
@@ -638,8 +659,8 @@ function mostrarOrc(){
   $('secOrc').scrollIntoView({behavior:'smooth'});
 }
 function renderItens(){
-  $('itens').innerHTML=atual.itens.map((i,k)=>`<div class="item ${i.valor?'':'semp'}" data-k="${k}">
-    <div class="top"><div><input data-f="desc" value="${esc(i.desc)}" style="font-weight:600;border:0;padding:0">${i.motivo?`<div class="mot">${esc(i.motivo)}</div>`:''}</div><button class="x" data-del="${k}" aria-label="Remover">×</button></div>
+  $('itens').innerHTML=atual.itens.map((i,k)=>`<div class="item ${i.valor?(i.sug?'sug':''):'semp'}" data-k="${k}">
+    <div class="top"><div><input data-f="desc" value="${esc(i.desc)}" style="font-weight:600;border:0;padding:0">${i.motivo?`<div class="mot">${esc(i.motivo)}</div>`:''}${i.sug&&i.valor?`<div class="mot sugn">💡 Preço sugerido (${esc(i.sug)}). Confira.</div>`:''}</div><button class="x" data-del="${k}" aria-label="Remover">×</button></div>
     <div class="g"><input data-f="qtd" inputmode="decimal" value="${String(i.qtd).replace('.',',')}" aria-label="Quantidade">
     <input data-f="valor" inputmode="decimal" value="${i.valor?String(i.valor.toFixed(2)).replace('.',','):''}" placeholder="Valor un." aria-label="Valor unitário">
     <select data-f="prio" aria-label="Prioridade">${['urgente','recomendado','pode esperar'].map(p=>`<option ${p===i.prio?'selected':''}>${p}</option>`).join('')}</select></div></div>`).join('')||'<div class="mut">Nenhum item. Adicione abaixo.</div>';
@@ -649,8 +670,8 @@ function atualizar(){
   if(!atual)return;
   atual.resumo=$('resumo').value;atual.validade=$('validade').value;atual.prazo=$('prazo').value;
   $('total').textContent=brl(total());$('msgPrev').textContent=texto();
-  const semp=atual.itens.filter(i=>!i.valor).length;
-  $('alertas').innerHTML=[...atual.alertas,...(semp?[`${semp} item(ns) sem preço na tabela — preencha o valor.`]:[])].map(a=>`<div class="alerta">⚠️ ${esc(a)}</div>`).join('');
+  const semp=atual.itens.filter(i=>!i.valor).length,sug=atual.itens.filter(i=>i.valor&&i.sug).length;
+  $('alertas').innerHTML=[...atual.alertas,...(sug?[`${sug} preço(s) sugerido(s) de itens parecidos — confira antes de enviar.`]:[]),...(semp?[`${semp} item(ns) sem preço na tabela — preencha o valor.`]:[])].map(a=>`<div class="alerta">⚠️ ${esc(a)}</div>`).join('');
 }
 const total=()=>atual.itens.reduce((s,i)=>s+i.qtd*i.valor,0);
 const ico={urgente:'🔴',recomendado:'🟡','pode esperar':'🟢'};
@@ -706,7 +727,7 @@ function abrirCfg(){
 }
 function salvarCfg(){
   cfg={nome:$('cNome').value.trim(),fone:$('cFone').value.trim(),cnpj:$('cCnpj').value.trim(),end:$('cEnd').value.trim(),num:parseInt($('cNum').value)||1,key:$('cKey').value.trim(),modelo:$('cModelo').value.trim()||MODELO_PADRAO};reservaCache=null;S.set('modeloOk2','');S.set('modelosRuins',[]);testarCodigo();
-  cat=$('cCat').value.split('\n').map(l=>{const p=l.split(';');return{desc:p[0].trim(),valor:num(p[1])}}).filter(c=>c.desc);
+  cat=$('cCat').value.split('\n').map(linhaCat).filter(Boolean);
   S.set('cfg',cfg);S.set('cat',cat);$('dCfg').close();checarCfg();toast('Configurações salvas');
 }
 /* Mede a velocidade de cada IA da chave e passa a usar a mais rápida */
@@ -734,6 +755,77 @@ async function testarIAs(){
   }catch(e){out.textContent='Não deu para testar: '+e.message}
   finally{$('bTestarIA').disabled=false}
 }
+/* ---------- Tabela de preços: colar do Excel e importar planilha ---------- */
+// aceita "desc ; valor", "desc<TAB>valor" (colado do Excel) e "desc 100,00"
+function linhaCat(l){
+  l=String(l||'').trim();if(!l)return null;
+  let p=l.includes(';')?l.split(';'):l.includes('\t')?l.split('\t'):null;
+  if(p){const cols=p.map(x=>x.trim()).filter(x=>x!=='');if(!cols.length)return null;
+    const vi=[...cols.keys()].reverse().find(i=>i>0&&/^(R\$\s*)?-?[\d.]*\d(,\d+)?$/.test(cols[i].replace(/\s/g,'')));
+    if(vi==null)return{desc:cols[0],valor:0};
+    const desc=cols.slice(0,vi).filter(x=>!/^\d+$/.test(x)||cols.slice(0,vi).length===1).join(' ').trim()||cols[0];
+    return{desc,valor:num(cols[vi])}}
+  const m=l.match(/^(.*?)[\s|]+(R\$\s*)?(\d{1,3}(\.\d{3})*,\d{2}|\d+([.,]\d{1,2})?)$/);
+  return m?{desc:m[1].trim(),valor:num(m[3])}:{desc:l,valor:0};
+}
+const ehNum=v=>{if(typeof v==='number')return true;const t=String(v??'').replace(/[R$\s]/g,'');return /^-?(\d{1,3}(\.\d{3})+|\d+)(,\d+)?$/.test(t)||/^-?\d+\.\d{1,2}$/.test(t)};
+const valorDe=v=>typeof v==='number'?v:(/^-?\d+\.\d{1,2}$/.test(String(v).trim())?parseFloat(v):num(v));
+async function lerPlanilha(f){
+  const nome=f.name.toLowerCase();
+  if(/\.(xlsx|xls|ods)$/.test(nome)){
+    if(!window.XLSX)await new Promise((ok,no)=>{const sc=document.createElement('script');sc.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';sc.onload=ok;sc.onerror=()=>no(new Error('sem internet para abrir Excel'));document.head.appendChild(sc)});
+    const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+    // a aba com mais linhas
+    let melhor=[];for(const n of wb.SheetNames){const r=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''});if(r.length>melhor.length)melhor=r}
+    return melhor;
+  }
+  const buf=await f.arrayBuffer();
+  let txt=new TextDecoder('utf-8').decode(buf);
+  if(txt.includes('�'))txt=new TextDecoder('windows-1252').decode(buf); // planilhas antigas do Windows
+  const linhas=txt.split(/\r?\n/).filter(l=>l.trim());
+  const amostra=linhas.slice(0,30);
+  const sep=[';','\t','|',','].map(c=>({c,n:amostra.filter(l=>l.split(c).length>1).length})).sort((a,b)=>b.n-a.n)[0].c;
+  return linhas.map(l=>{ // respeita aspas
+    const out=[];let cur='',q=false;for(const ch of l){if(ch==='"'){q=!q;continue}if(ch===sep&&!q){out.push(cur);cur='';continue}cur+=ch}out.push(cur);return out.map(x=>x.trim())});
+}
+function acharColunas(rows){
+  const sem=t=>String(t??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+  // cabeçalho: uma das 10 primeiras linhas com cara de títulos
+  for(let h=0;h<Math.min(10,rows.length);h++){
+    const r=rows[h].map(sem);
+    const pv=r.findIndex(c=>/(preco|valor|vlr|pr\.?).*(venda|vend)|^venda$|preco venda|valor venda/.test(c));
+    const pp=pv>=0?pv:r.findIndex(c=>/preco|valor|vlr|unit/.test(c)&&!/custo|compra|total|desc(onto)?$/.test(c));
+    const d=r.findIndex(c=>/descri|produto|peca|servico|nome|item|historico/.test(c)&&!/cod/.test(c));
+    if(pp>=0&&d>=0)return{ini:h+1,d,p:pp,cab:true};
+  }
+  // sem cabeçalho: preço = coluna mais numérica com centavos; descrição = coluna com textos mais longos
+  const n=Math.max(...rows.slice(0,50).map(r=>r.length));let p=-1,pBest=0,d=-1,dBest=0;
+  for(let c=0;c<n;c++){
+    const vals=rows.slice(0,200).map(r=>r[c]).filter(v=>v!==''&&v!=null);
+    const nums=vals.filter(ehNum),dec=vals.filter(v=>typeof v==='number'?v%1!==0:/[.,]\d{2}$/.test(String(v)));
+    const sc=nums.length+dec.length;if(sc>pBest&&nums.length>vals.length*0.6){pBest=sc;p=c}
+    const txt=vals.filter(v=>!ehNum(v));const med=txt.reduce((a,v)=>a+String(v).length,0)/(txt.length||1);
+    if(txt.length>vals.length*0.6&&med>dBest){dBest=med;d=c}
+  }
+  return p>=0&&d>=0?{ini:0,d,p,cab:false}:null;
+}
+async function importarTabela(f){
+  const info=$('impInfo');info.textContent='Lendo a planilha…';
+  try{
+    const rows=await lerPlanilha(f);
+    const col=acharColunas(rows);
+    if(!col){info.textContent='Não achei as colunas de descrição e preço. Confira se a planilha tem essas duas colunas.';return}
+    const itens=rows.slice(col.ini).map(r=>({desc:String(r[col.d]??'').replace(/\s+/g,' ').trim(),valor:valorDe(r[col.p])})).filter(x=>x.desc&&x.valor>0&&!/^total/i.test(x.desc));
+    if(!itens.length){info.textContent='A planilha não tem itens com preço.';return}
+    const atuais=$('cCat').value.split('\n').map(linhaCat).filter(Boolean);
+    const idx=new Map(atuais.map((c,i)=>[norm(c.desc),i]));let novos=0,atual=0;
+    for(const it of itens){const k=norm(it.desc);if(idx.has(k)){atuais[idx.get(k)].valor=it.valor;atual++}else{idx.set(k,atuais.length);atuais.push(it);novos++}}
+    $('cCat').value=atuais.map(c=>`${c.desc} ; ${c.valor.toFixed(2).replace('.',',')}`).join('\n');
+    const ex=itens[0];
+    info.innerHTML=`✓ <b>${itens.length} itens</b> lidos (${novos} novos, ${atual} atualizados). Ex.: ${esc(ex.desc)} — ${brl(ex.valor)}.<br><b>Confira e toque em Salvar.</b>`;
+  }catch(e){info.textContent='Não deu para ler o arquivo: '+(e.message||e)}
+}
+
 async function testarCodigo(){
   if(!cfg.key||direto()||location.protocol==='file:')return;
   try{const r=await buscar(urlIA('/ping'),{headers:hdr()},15000);const j=await r.json().catch(()=>({}));
@@ -748,11 +840,11 @@ $('bNovoVeic').onclick=()=>abrirVeic(null);
 $('bEditVeic').onclick=()=>abrirVeic(veicAtual());
 $('bVeicOk').onclick=salvarVeic;$('bVeicCanc').onclick=()=>$('dVeic').close();
 $('vidInfo').onclick=e=>{const b=e.target.closest('button');if(!b)return;const i=+b.dataset.i;if(b.classList.contains('vdel')){videos.splice(i,1);mostrarVideos();podeAnalisar()}else mostrarVideos(i)};
-$('bTestarIA').onclick=testarIAs;$('bNovoOrc').onclick=novoOrcamento;$('bGravar').onclick=abrirCamera;$('camX').onclick=fecharCamera;$('camRec').onclick=alternarGravacao;$('bGaleria').onclick=()=>$('fGaleria').click();
+$('bTestarIA').onclick=testarIAs;$('bImportar').onclick=()=>$('fTabela').click();$('fTabela').onchange=e=>{const f=e.target.files[0];if(f)importarTabela(f);e.target.value=''};$('bNovoOrc').onclick=novoOrcamento;$('bGravar').onclick=abrirCamera;$('camX').onclick=fecharCamera;$('camRec').onclick=alternarGravacao;$('bGaleria').onclick=()=>$('fGaleria').click();
 $('fGravar').onchange=e=>{pegarVideo(e.target.files[0]);e.target.value=''};$('fGaleria').onchange=e=>{[...e.target.files].forEach(pegarVideo);e.target.value=''};
 $('bAnalisar').onclick=analisar;
 $('itens').addEventListener('input',e=>{const el=e.target,k=el.closest('.item')?.dataset.k;if(k==null||!el.dataset.f)return;const i=atual.itens[k];
-  if(el.dataset.f==='qtd')i.qtd=num(el.value)||0;else if(el.dataset.f==='valor'){i.valor=num(el.value);el.closest('.item').classList.toggle('semp',!i.valor)}else i[el.dataset.f]=el.value;atualizar()});
+  if(el.dataset.f==='qtd')i.qtd=num(el.value)||0;else if(el.dataset.f==='valor'){i.valor=num(el.value);delete i.sug;const it=el.closest('.item');it.classList.toggle('semp',!i.valor);it.classList.remove('sug');it.querySelector('.sugn')?.remove()}else i[el.dataset.f]=el.value;atualizar()});
 $('itens').addEventListener('change',e=>{if(e.target.dataset.f==='prio')atualizar()});
 $('itens').addEventListener('click',e=>{const d=e.target.dataset.del;if(d!=null){atual.itens.splice(d,1);renderItens()}});
 for(const id of['resumo','validade','prazo'])$(id).addEventListener('input',atualizar);

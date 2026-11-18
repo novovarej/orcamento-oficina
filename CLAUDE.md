@@ -82,6 +82,11 @@ Produto que o Tiago (Novo Varejo) pretende vender para oficinas de Botucatu e re
 - Preços (paid tier, nov/2026): gemini-3.5-transcribe ≈ US$ 0,005/min de áudio; gemini-4-hydrogen US$ 1,50/1M entrada e US$ 7,50/1M saída. Estimativa por orçamento (1 min de fala): ~US$ 0,015 (≈ R$ 0,08–0,10).
 - A corrida da v1.3 disparava 3 IAs juntas (cada uma que responde é cobrada). Agora é escalonada: a 2ª só entra após 8 s sem resposta (ou se a 1ª falhar), a 3ª após 16 s. No normal, só o Hydrogen é chamado.
 
+## Tabela de preços: importar e sugerir (v1.5–1.6, 18/11/2026)
+- ⚙️ "Importar planilha de preços": .csv/.txt (detecta ; TAB | , e acentos do Windows/cp1252) e .xlsx/.xls/.ods (SheetJS carregado sob demanda do cdn.sheetjs.com). Acha as colunas pelo cabeçalho (prefere "preço/valor venda", ignora custo/compra/total) ou, sem cabeçalho, pela coluna mais numérica + coluna de texto mais longa. Mescla com a tabela (atualiza iguais, acrescenta novos) e pede para Salvar.
+- O campo da tabela aceita colar do Excel (TAB) e "descrição 100,00".
+- Item sem preço exato: `sugerirPreco` procura item parecido (Jaccard ≥ 0,6 nas palavras, ignora lado/marca entre parênteses, nunca mistura dianteiro×traseiro nem peça×mão de obra) na tabela e nos orçamentos anteriores (`hist`). Fica amarelo com "💡 Preço sugerido (orçamento nº X…)"; editar o valor tira a marca.
+
 ## Pendências conhecidas
 - Teste com vídeo real do mecânico no celular (HB20/CR-V) na versão 1.3.
 
