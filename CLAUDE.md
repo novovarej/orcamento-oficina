@@ -12,7 +12,7 @@ Produto que o Tiago (Novo Varejo) pretende vender para oficinas de Botucatu e re
 ## Como está hoje (v0.2 — orçamento por vídeo, 16/11/2026)
 - Decisão do Tiago: fluxo simples, **só vídeo + WhatsApp**. Cliente e veículo são cadastrados antes; o mecânico grava o vídeo falando o diagnóstico; a IA monta o orçamento.
 - `public/index.html` único (HTML + CSS + JS puro), feito para o **celular**.
-- IA: Google Gemini (REST `generateContent`, modelo configurável, padrão `gemini-3.8-flash`), chamada direto do navegador com a chave da oficina (guardada em localStorage). Vídeo até 14 MB vai inline; acima disso, File API resumable.
+- IA: Google Gemini (REST `generateContent`, modelo configurável, padrão `gemini-4-hydrogen` (desde v0.9)), chamada direto do navegador com a chave da oficina (guardada em localStorage). Vídeo até 14 MB vai inline; acima disso, File API resumable.
 - Resposta em JSON (schema): transcrição, resumo para o cliente, itens (peça/serviço, qtd, prioridade, motivo, `tabela_id`) e alertas. **A IA não dá preço**: os preços vêm da tabela da oficina; item sem preço fica em vermelho.
 - Envio: Web Share API (vídeo + texto) para o WhatsApp; alternativa só texto via wa.me no número do cliente.
 - Dados em localStorage com prefixo `orv_`: cfg, veics, cat (tabela de preços que aprende), hist (sem vídeo).

@@ -139,7 +139,7 @@ dialog h3{margin:0 0 6px}
   <label>Endereço</label><input id="cEnd">
   <label>Próximo nº de orçamento</label><input id="cNum" inputmode="numeric">
   <label>Código da oficina</label><input id="cKey" autocomplete="off" autocapitalize="characters" placeholder="ex.: OFICINA-ZE-4821">
-  <div class="mut">Fornecido pela Zonta IA · versão 0.8</div>
+  <div class="mut">Fornecido pela Zonta IA · versão 0.9</div>
   <button class="btn" id="bTestarIA" type="button">🔎 Testar IAs (velocidade)</button>
   <div id="testeIA" class="mut" style="white-space:pre-line;margin-top:6px"></div>
   <label>Modelo da IA</label><input id="cModelo">
@@ -167,7 +167,7 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
 function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),2600)}
 
-const MODELO_PADRAO='gemini-3.8-flash';
+const MODELO_PADRAO='gemini-4-hydrogen'; // o mais rápido na chave do Tiago (teste 18/11: 4,3 s)
 let cfg=S.get('cfg',{nome:'',fone:'',cnpj:'',end:'',num:1,key:'',modelo:MODELO_PADRAO});
 let veics=S.get('veics',[]);
 let cat=S.get('cat',[]); // [{desc,valor}]
