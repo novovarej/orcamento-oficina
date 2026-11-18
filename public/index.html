@@ -139,7 +139,7 @@ dialog h3{margin:0 0 6px}
   <label>Endereço</label><input id="cEnd">
   <label>Próximo nº de orçamento</label><input id="cNum" inputmode="numeric">
   <label>Código da oficina</label><input id="cKey" autocomplete="off" autocapitalize="characters" placeholder="ex.: OFICINA-ZE-4821">
-  <div class="mut">Fornecido pela Zonta IA · versão 0.9</div>
+  <div class="mut">Fornecido pela Zonta IA · versão 1.0</div>
   <button class="btn" id="bTestarIA" type="button">🔎 Testar IAs (velocidade)</button>
   <div id="testeIA" class="mut" style="white-space:pre-line;margin-top:6px"></div>
   <label>Modelo da IA</label><input id="cModelo">
@@ -338,9 +338,9 @@ async function enviarArquivo(blob,mime){
 }
 
 /* Lista de modelos: o escolhido primeiro, depois outros "flash" disponíveis na chave (reserva) */
-let reservaCache=null;S.set('modeloOk','');S.set('modelosRuins',[]);testarCodigo();
+let reservaCache=null;
 async function modelosParaTentar(){
-  const principal=(cfg.modelo||MODELO_PADRAO).replace(/^models\//,'');
+  const principal=MODELO_PADRAO;
   if(!reservaCache){
     reservaCache=[];
     try{
@@ -371,18 +371,19 @@ function modoRapido(modelo){
   if(/gemini-(1|2\.0)/i.test(modelo))return {};
   return {thinkingConfig:{thinkingLevel:'low'}};
 }
-async function gerar(modelo,parte,v){
-  const soAudio=!!(parte.inline_data&&/^audio/.test(parte.inline_data.mime_type));
+async function gerar(modelo,parte,v,tmo=45000,semSchema=false){
+  const soAudio=!!(parte.text||(parte.inline_data&&/^audio/.test(parte.inline_data.mime_type)));
   const ini=Date.now();
   const tic=setInterval(()=>etapaTxt(`A IA está ouvindo o mecânico… ${Math.round((Date.now()-ini)/1000)}s (${modelo})`),1000);
   let r,j;
   try{
     r=await buscar(urlIA(`/v1beta/models/${encodeURIComponent(modelo)}:generateContent`),{method:'POST',headers:hdr({'Content-Type':'application/json'}),
-      body:JSON.stringify({contents:[{parts:[parte,{text:prompt(v,soAudio)}]}],generationConfig:{responseMimeType:'application/json',responseSchema:esquema,temperature:0.2,...modoRapido(modelo)}})},45000); // travou? passa para outra IA
+      body:JSON.stringify({contents:[{parts:[parte,{text:prompt(v,soAudio)}]}],generationConfig:{responseMimeType:'application/json',...(semSchema?{}:{responseSchema:esquema}),temperature:0.2,...modoRapido(modelo)}})},tmo); // travou? passa para outra IA
     j=await r.json().catch(()=>null);
   }finally{clearInterval(tic)}
   console.log('[IA]',modelo,r.status,((Date.now()-ini)/1000).toFixed(1)+'s');
-  if(!r.ok&&r.status===400&&!semModoRapido.has(modelo)&&/think/i.test((j&&j.error&&j.error.message)||'')){semModoRapido.add(modelo);return gerar(modelo,parte,v)}
+  if(!r.ok&&r.status===400&&!semModoRapido.has(modelo)&&/think/i.test((j&&j.error&&j.error.message)||'')){semModoRapido.add(modelo);return gerar(modelo,parte,v,tmo,semSchema)}
+  if(!r.ok&&r.status===400&&!semSchema&&/schema|JSON mode/i.test((j&&j.error&&j.error.message)||''))return gerar(modelo,parte,v,tmo,true);
   if(!r.ok)throw erroGoogle(r.status,j);
   const c=j&&j.candidates&&j.candidates[0];
   if(!c){const b=j&&j.promptFeedback&&j.promptFeedback.blockReason;throw new ErroIA(b?'A IA recusou este vídeo. Grave de novo, mostrando só o carro.':'A IA não respondeu nada.',{repetir:!b})}
@@ -396,11 +397,35 @@ async function gerar(modelo,parte,v){
 }
 
 /* Tenta várias vezes, com espera crescente, e troca de modelo se o principal estiver congestionado */
+/* Etapa 1: transcrever a fala com a IA própria para isso (gemini-*-transcribe); reserva: Hydrogen. */
+async function transcrever(parte){
+  await modelosParaTentar();
+  const lista=[...(reservaCache||[]).filter(m=>/transcri/i.test(m)),'gemini-3.5-transcribe',MODELO_PADRAO].filter((m,i,a)=>a.indexOf(m)===i);
+  let ultimo;
+  for(const modelo of lista){
+    const ini=Date.now();
+    const tic=setInterval(()=>etapaTxt(`Transcrevendo a fala… ${Math.round((Date.now()-ini)/1000)}s`),1000);
+    try{
+      const r=await buscar(urlIA(`/v1beta/models/${encodeURIComponent(modelo)}:generateContent`),{method:'POST',headers:hdr({'Content-Type':'application/json'}),
+        body:JSON.stringify({contents:[{parts:[parte,{text:'Transcreva fielmente, em português do Brasil, tudo o que é falado neste áudio de um mecânico de automóveis. Responda somente com a transcrição.'}]}],generationConfig:{temperature:0,...(/transcri/i.test(modelo)?{}:modoRapido(modelo))}})},40000);
+      const j=await r.json().catch(()=>null);
+      if(!r.ok)throw erroGoogle(r.status,j);
+      const txt=((j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[]).map(p=>p.text||'').join('').trim();
+      console.log('[transcrição]',modelo,((Date.now()-ini)/1000).toFixed(1)+'s',txt.length,'caracteres');
+      if(txt.length<3)throw new ErroIA('Não deu para entender a fala do mecânico. Grave de novo, falando perto do celular.');
+      return {texto:txt,modelo,seg:Math.round((Date.now()-ini)/1000)};
+    }catch(e){ultimo=e;if(e instanceof ErroIA&&/entender a fala/.test(e.message))throw e}
+    finally{clearInterval(tic)}
+  }
+  throw ultimo||new ErroIA('Não deu para transcrever a fala.',{repetir:true});
+}
+
 /* Estratégia rápida: 1ª rodada passa por todas as IAs disponíveis SEM esperar (a que funcionou da última vez vem primeiro);
    só se todas falharem, 2ª rodada com uma pausa. Modelo inexistente (404) é esquecido. */
 async function gerarComInsistencia(parte,v){
-  let modelos=await modelosParaTentar();
-  const ok=S.get('modeloOk','');
+  const tmo=parte.text?30000:45000;
+  let modelos=(await modelosParaTentar()).filter(m=>!/transcri/i.test(m));
+  const ok=S.get('modeloOk2','');
   if(ok&&modelos.includes(ok))modelos=[ok,...modelos.filter(m=>m!==ok)];
   else if(ok&&!modelos.includes(ok))modelos=[ok,...modelos];
   const ruins=new Set(S.get('modelosRuins',[]));
@@ -413,11 +438,11 @@ async function gerarComInsistencia(parte,v){
       const modelo=modelos[mi];
       if(rodada&&ruins.has(modelo))continue;
       if(mi||rodada)etapaTxt(`Trocando para outra IA (${mi+1}/${modelos.length})…`);
-      try{const res=await gerar(modelo,parte,v);S.set('modeloOk',modelo);return res}
+      try{const res=await gerar(modelo,parte,v,tmo);S.set('modeloOk2',modelo);return res}
       catch(e){
         ultimo=e;
         if(!(e instanceof ErroIA)||(!e.repetir&&!e.trocar))throw e;
-        if(e.status===404){ruins.add(modelo);S.set('modelosRuins',[...ruins]);if(S.get('modeloOk','')===modelo)S.set('modeloOk','')}
+        if(e.status===404){ruins.add(modelo);S.set('modelosRuins',[...ruins]);if(S.get('modeloOk2','')===modelo)S.set('modeloOk2','')}
       }
     }
   }
@@ -427,7 +452,7 @@ async function gerarComInsistencia(parte,v){
 function prompt(v,soAudio){
   const tabela=cat.length?cat.map((c,i)=>`${i}: ${c.desc}`).join('\n'):'(vazia)';
   return `Você é o orçamentista de uma oficina mecânica no Brasil.
-${soAudio?'O áudio foi gravado pelo mecânico FALANDO o que encontrou no veículo e o que precisa ser feito. A fala é a fonte principal.':'O vídeo foi gravado pelo mecânico mostrando o veículo e FALANDO o que encontrou e o que precisa ser feito.'}
+${soAudio?'Abaixo está a FALA do mecânico (áudio ou transcrição) dizendo o que encontrou no veículo e o que precisa ser feito. A fala é a fonte principal; a transcrição pode ter pequenos erros de palavras técnicas — interprete pelo contexto de oficina.':'O vídeo foi gravado pelo mecânico mostrando o veículo e FALANDO o que encontrou e o que precisa ser feito.'}
 
 Veículo: ${v.modelo} ${v.ano} — placa ${v.placa}${v.km?` — ${v.km} km`:''}.
 
@@ -507,7 +532,22 @@ async function analisar(){
       enviado={video,parte,quando:Date.now()};
     }
     etapa('A IA está ouvindo o mecânico');
-    const res=await gerarComInsistencia(parte,v);
+    let res;
+    if(parte.inline_data&&/^audio/.test(parte.inline_data.mime_type)){
+      etapaTxt('Transcrevendo a fala…');
+      let tr=null;
+      try{tr=enviado&&enviado.tr||await transcrever(parte);enviado.tr=tr}
+      catch(e){if(e instanceof ErroIA&&/entender a fala/.test(e.message))throw e}
+      if(tr){
+        etapaTxt(`Fala transcrita em ${tr.seg}s`);
+        etapa('Montando o orçamento');
+        res=await gerarComInsistencia({text:'Fala do mecânico (transcrição do áudio):\n"""\n'+tr.texto+'\n"""'},v);
+        res.transcricao=tr.texto;res._seg+=tr.seg;
+      }else{
+        etapaTxt('A IA está ouvindo o mecânico'); // reserva: áudio direto
+        res=await gerarComInsistencia(parte,v);
+      }
+    }else res=await gerarComInsistencia(parte,v);
     etapa(`Orçamento montado em ${res._seg}s (${res._modelo})`);etapa('Confira os itens e os preços abaixo','ok');
     montar(res,v);
   }catch(e){etapa(e instanceof ErroIA?e.message:'Algo deu errado: '+(e.message||e)+'. Toque em "Montar orçamento com IA" de novo.','err')}
@@ -603,7 +643,7 @@ function abrirCfg(){
   $('dCfg').showModal();
 }
 function salvarCfg(){
-  cfg={nome:$('cNome').value.trim(),fone:$('cFone').value.trim(),cnpj:$('cCnpj').value.trim(),end:$('cEnd').value.trim(),num:parseInt($('cNum').value)||1,key:$('cKey').value.trim(),modelo:$('cModelo').value.trim()||MODELO_PADRAO};reservaCache=null;
+  cfg={nome:$('cNome').value.trim(),fone:$('cFone').value.trim(),cnpj:$('cCnpj').value.trim(),end:$('cEnd').value.trim(),num:parseInt($('cNum').value)||1,key:$('cKey').value.trim(),modelo:$('cModelo').value.trim()||MODELO_PADRAO};reservaCache=null;S.set('modeloOk2','');S.set('modelosRuins',[]);testarCodigo();
   cat=$('cCat').value.split('\n').map(l=>{const p=l.split(';');return{desc:p[0].trim(),valor:num(p[1])}}).filter(c=>c.desc);
   S.set('cfg',cfg);S.set('cat',cat);$('dCfg').close();checarCfg();toast('Configurações salvas');
 }
@@ -628,7 +668,7 @@ async function testarIAs(){
     res.sort((a,b)=>(b.ok-a.ok)||((a.s||0)-(b.s||0)));
     out.textContent=res.map(x=>x.ok?`✓ ${x.m}: ${x.s.toFixed(1)} s`:`✗ ${x.m}: ${x.msg}`).join('\n')||'Nenhuma IA encontrada.';
     const melhor=res.find(x=>x.ok);
-    if(melhor){S.set('modeloOk',melhor.m);out.textContent+=`\n\nVai usar primeiro: ${melhor.m}`}
+    if(melhor){S.set('modeloOk2',melhor.m);out.textContent+=`\n\nVai usar primeiro: ${melhor.m}`}
   }catch(e){out.textContent='Não deu para testar: '+e.message}
   finally{$('bTestarIA').disabled=false}
 }

@@ -54,6 +54,12 @@ Produto que o Tiago (Novo Varejo) pretende vender para oficinas de Botucatu e re
 - ⚙️ "Testar IAs": manda "Responda apenas: OK" para cada modelo da chave em paralelo, mostra o tempo de cada um e grava o mais rápido em `orv_modeloOk`.
 - Contador mostra o modelo em uso. Versão aparece em ⚙️. `public/_headers` com `Cache-Control: no-cache`.
 
+## Duas etapas: transcrever + montar (v1.0, 18/11/2026)
+- Medição real no PC do Tiago (18/11): `gemini-3.7-flash` travou 78 s e deu 503 (era o que o celular usava, aprendido em `orv_modeloOk`); `gemini-4-hydrogen` deu 503 com áudio mas respondeu texto em 8,7 s; `gemini-3.5-transcribe` transcreveu 40 s de áudio em 8,9 s (não aceita JSON mode).
+- Agora: etapa 1 = `*-transcribe` (reserva: Hydrogen) só transcreve; etapa 2 = Hydrogen monta o JSON a partir do texto (30 s por modelo, depois reserva). Se a transcrição falhar toda, volta ao áudio direto.
+- Modelo principal fixo = `MODELO_PADRAO` (o campo antigo `cfg.modelo` não manda mais). Aprendizado renomeado para `orv_modeloOk2` (descarta o 3.7 gravado). Corrigido bug: o reset do aprendizado rodava a cada abertura do app.
+- Se o modelo recusar `responseSchema`/JSON mode (400), repete sem schema.
+
 ## Pendências conhecidas
 - Falta o teste real com a chave Gemini (vídeo do HB20 deu 503 na v0.2).
 - Tiago precisa criar a conta Cloudflare e conectar o repo (passo a passo no README).
