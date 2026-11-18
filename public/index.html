@@ -141,7 +141,7 @@ dialog h3{margin:0 0 6px}
   <label>Endereço</label><input id="cEnd">
   <label>Próximo nº de orçamento</label><input id="cNum" inputmode="numeric">
   <label>Código da oficina</label><input id="cKey" autocomplete="off" autocapitalize="characters" placeholder="ex.: OFICINA-ZE-4821">
-  <div class="mut">Fornecido pela Zonta IA · versão 1.3</div>
+  <div class="mut">Fornecido pela Zonta IA · versão 1.4</div>
   <button class="btn" id="bTestarIA" type="button">🔎 Testar IAs (velocidade)</button>
   <div id="testeIA" class="mut" style="white-space:pre-line;margin-top:6px"></div>
   <label>Modelo da IA</label><input id="cModelo">
@@ -457,8 +457,15 @@ async function gerarComInsistencia(parte,v){
         if(rodada){for(let x=8;x>0;x--){etapaTxt(`IA congestionada. Tentando de novo em ${x}s…`);await espera(1000)}}
         for(let k=0;k<modelos.length;k+=3){
           const onda=modelos.slice(k,k+3);
+          const esperando=[];const proxima=()=>{const f=esperando.shift();if(f)f()};
           try{
-            const res=await Promise.any(onda.map(m=>gerar(m,parte,v,tmo,false,true).then(r=>{return r})));
+            // escalonado: a 2ª IA só entra se a 1ª não responder em 8 s, a 3ª em 16 s (cada IA que responde é cobrada)
+            let pronto=false,falhas=0;
+            const res=await Promise.any(onda.map((m,i)=>new Promise((ok,no)=>{
+              let t=null;
+              const vai=()=>{if(pronto)return no(new ErroIA('dispensada',{repetir:true}));gerar(m,parte,v,tmo,false,true).then(r=>{pronto=true;ok(r)},e=>{falhas++;no(e);if(proxima)proxima()})};
+              if(i===0)vai();else{t=setTimeout(vai,8000*i);esperando.push(()=>{clearTimeout(t);vai()})}
+            })));
             S.set('modeloOk2',res._modelo);res._seg=Math.round((Date.now()-ini)/1000);return res;
           }catch(agg){
             const erros=(agg&&agg.errors)||[agg];ultimo=erros[0];

@@ -78,6 +78,10 @@ Produto que o Tiago (Novo Varejo) pretende vender para oficinas de Botucatu e re
 - Chave Gemini no **Nível 1, plano pré-pago** (R$ 170 de crédito, recarga automática desativada — Tiago quer só pré-pago). Antes disso o projeto ficava em "Pagamento obrigatório/Nível gratuito" por causa de cartão recusado na conta de faturamento.
 - Teste ponta a ponta real no Nível 1 (fala de 2 min): transcrição 5 s + montar 4 s = **~11 s no total** (gemini-3.5-transcribe + gemini-4-hydrogen).
 
+## Custo e corrida escalonada (v1.4, 18/11/2026)
+- Preços (paid tier, nov/2026): gemini-3.5-transcribe ≈ US$ 0,005/min de áudio; gemini-4-hydrogen US$ 1,50/1M entrada e US$ 7,50/1M saída. Estimativa por orçamento (1 min de fala): ~US$ 0,015 (≈ R$ 0,08–0,10).
+- A corrida da v1.3 disparava 3 IAs juntas (cada uma que responde é cobrada). Agora é escalonada: a 2ª só entra após 8 s sem resposta (ou se a 1ª falhar), a 3ª após 16 s. No normal, só o Hydrogen é chamado.
+
 ## Pendências conhecidas
 - Teste com vídeo real do mecânico no celular (HB20/CR-V) na versão 1.3.
 
