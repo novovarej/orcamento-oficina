@@ -52,6 +52,7 @@ pre{white-space:pre-wrap;font:14px/1.4 system-ui,sans-serif;background:#f6f7f9;p
 #cam .rec.on{border-radius:18px;transform:scale(.8)}
 #cam .x{background:none;border:0;color:#fff;font:600 17px system-ui,sans-serif;width:90px;text-align:left}
 #cam .t{width:90px;text-align:right}#cam .t.on{color:#f87171}
+.vlin{display:flex;gap:6px;margin-top:6px}.vlin .vver{flex:1;text-align:left;border:1px solid #ddd;background:#fff;border-radius:10px;padding:10px;font:500 15px system-ui,sans-serif}.vlin.on .vver{border-color:var(--pri);font-weight:700}.vlin .vdel{border:0;background:#fee2e2;color:#b91c1c;border-radius:10px;width:44px;font-size:16px}
 dialog{border:0;border-radius:16px;padding:0;width:min(560px,94vw);max-height:90vh}
 dialog .in{padding:16px;overflow:auto;max-height:90vh}
 dialog h3{margin:0 0 6px}
@@ -80,14 +81,14 @@ dialog h3{margin:0 0 6px}
   </section>
 
   <section class="card">
-    <h2><span class="n">2</span>Vídeo do mecânico</h2>
+    <h2><span class="n">2</span>Vídeos do mecânico</h2>
     <div class="mut">Grave mostrando o problema e <b>falando</b> o que precisa trocar ou fazer.</div>
     <div class="two" style="margin-top:10px">
       <button class="btn pri" id="bGravar">📹 Gravar</button>
       <button class="btn" id="bGaleria">📁 Galeria</button>
     </div>
     <input type="file" id="fGravar" accept="video/*" capture="environment" hidden>
-    <input type="file" id="fGaleria" accept="video/*" hidden>
+    <input type="file" id="fGaleria" accept="video/*" multiple hidden>
     <video id="prev" class="hide" controls playsinline></video>
     <div id="vidInfo" class="mut"></div>
     <button class="btn ok" id="bAnalisar" disabled>✨ Montar orçamento com IA</button>
@@ -112,10 +113,11 @@ dialog h3{margin:0 0 6px}
 
   <section class="card hide" id="secEnv">
     <h2><span class="n">4</span>Enviar ao cliente</h2>
-    <button class="btn wa" id="bEnvVideo">📲 Enviar vídeo + orçamento</button>
+    <button class="btn wa" id="bEnvVideo">📲 Enviar vídeos + orçamento</button>
     <button class="btn" id="bEnvTexto">💬 Só o texto no WhatsApp do cliente</button>
     <div class="two" style="margin-top:10px"><button class="btn" id="bCopiar">Copiar texto</button><button class="btn" id="bSalvar">Salvar</button></div>
     <details><summary>Ver mensagem</summary><pre id="msgPrev"></pre></details>
+    <button class="btn" id="bNovoOrc">🆕 Começar outro orçamento</button>
   </section>
 </main>
 
@@ -139,7 +141,7 @@ dialog h3{margin:0 0 6px}
   <label>Endereço</label><input id="cEnd">
   <label>Próximo nº de orçamento</label><input id="cNum" inputmode="numeric">
   <label>Código da oficina</label><input id="cKey" autocomplete="off" autocapitalize="characters" placeholder="ex.: OFICINA-ZE-4821">
-  <div class="mut">Fornecido pela Zonta IA · versão 1.0</div>
+  <div class="mut">Fornecido pela Zonta IA · versão 1.1</div>
   <button class="btn" id="bTestarIA" type="button">🔎 Testar IAs (velocidade)</button>
   <div id="testeIA" class="mut" style="white-space:pre-line;margin-top:6px"></div>
   <label>Modelo da IA</label><input id="cModelo">
@@ -172,7 +174,7 @@ let cfg=S.get('cfg',{nome:'',fone:'',cnpj:'',end:'',num:1,key:'',modelo:MODELO_P
 let veics=S.get('veics',[]);
 let cat=S.get('cat',[]); // [{desc,valor}]
 let hist=S.get('hist',[]);
-let video=null, atual=null; // atual = orçamento em edição
+let videos=[], atual=null; // atual = orçamento em edição
 
 /* ---------- Veículos ---------- */
 function renderVeics(sel){
@@ -269,14 +271,23 @@ async function reduzirVideo(f,ctxAudio,aoProgresso){
   return novo;
 }
 
-function pegarVideoSilencioso(f){video=f;$('prev').src=URL.createObjectURL(f);$('vidInfo').textContent=`${(f.size/1048576).toFixed(1)} MB`}
-function pegarVideo(f){
-  if(!f)return;video=f;
-  const p=$('prev');p.src=URL.createObjectURL(f);p.classList.remove('hide');
-  $('vidInfo').textContent=`${(f.size/1048576).toFixed(1)} MB`;
-  $('prog').innerHTML='';podeAnalisar();
+function mostrarVideos(sel){
+  const p=$('prev');
+  if(!videos.length){p.removeAttribute('src');p.classList.add('hide');$('vidInfo').innerHTML='';$('bGravar').textContent='📹 Gravar';$('bGaleria').textContent='📁 Galeria';return}
+  const i=sel==null?videos.length-1:sel;
+  p.src=URL.createObjectURL(videos[i]);p.classList.remove('hide');
+  $('vidInfo').innerHTML=videos.map((f,k)=>`<div class="vlin${k===i?' on':''}"><button class="vver" data-i="${k}">▶ Vídeo ${k+1} · ${(f.size/1048576).toFixed(1)} MB</button><button class="vdel" data-i="${k}" aria-label="Remover">✕</button></div>`).join('')
+    +(videos.length>1?`<div class="mut">${videos.length} vídeos no mesmo orçamento</div>`:'<div class="mut">Pode gravar mais vídeos para o mesmo orçamento.</div>');
+  $('bGravar').textContent='📹 Gravar outro';$('bGaleria').textContent='📁 + Da galeria';
 }
-function podeAnalisar(){$('bAnalisar').disabled=!(video&&veicAtual())}
+function pegarVideo(f){
+  if(!f)return;
+  if(videos.length>=6)return toast('Máximo de 6 vídeos por orçamento');
+  videos.push(f);mostrarVideos();$('prog').innerHTML='';podeAnalisar();
+}
+function novoOrcamentoVideos(){videos=[];mostrarVideos();$('prog').innerHTML='';podeAnalisar()}
+function novoOrcamento(){if(atual)salvar(false);atual=null;novoOrcamentoVideos();$('secOrc').classList.add('hide');$('secEnv').classList.add('hide');scrollTo(0,0)}
+function podeAnalisar(){$('bAnalisar').disabled=!(videos.length&&veicAtual())}
 
 /* ---------- IA (Google Gemini) ---------- */
 const GOOGLE='https://generativelanguage.googleapis.com';
@@ -372,13 +383,14 @@ function modoRapido(modelo){
   return {thinkingConfig:{thinkingLevel:'low'}};
 }
 async function gerar(modelo,parte,v,tmo=45000,semSchema=false){
-  const soAudio=!!(parte.text||(parte.inline_data&&/^audio/.test(parte.inline_data.mime_type)));
+  const partes=Array.isArray(parte)?parte:[parte];
+  const soAudio=partes.every(p=>p.text||(p.inline_data&&/^audio/.test(p.inline_data.mime_type)));
   const ini=Date.now();
   const tic=setInterval(()=>etapaTxt(`A IA está ouvindo o mecânico… ${Math.round((Date.now()-ini)/1000)}s (${modelo})`),1000);
   let r,j;
   try{
     r=await buscar(urlIA(`/v1beta/models/${encodeURIComponent(modelo)}:generateContent`),{method:'POST',headers:hdr({'Content-Type':'application/json'}),
-      body:JSON.stringify({contents:[{parts:[parte,{text:prompt(v,soAudio)}]}],generationConfig:{responseMimeType:'application/json',...(semSchema?{}:{responseSchema:esquema}),temperature:0.2,...modoRapido(modelo)}})},tmo); // travou? passa para outra IA
+      body:JSON.stringify({contents:[{parts:[...partes,{text:prompt(v,soAudio)+(partes.length>1&&!partes[0].text?`\n\nSão ${partes.length} gravações do mesmo carro: junte tudo num orçamento só, sem repetir itens.`:'')}]}],generationConfig:{responseMimeType:'application/json',...(semSchema?{}:{responseSchema:esquema}),temperature:0.2,...modoRapido(modelo)}})},tmo); // travou? passa para outra IA
     j=await r.json().catch(()=>null);
   }finally{clearInterval(tic)}
   console.log('[IA]',modelo,r.status,((Date.now()-ini)/1000).toFixed(1)+'s');
@@ -398,13 +410,13 @@ async function gerar(modelo,parte,v,tmo=45000,semSchema=false){
 
 /* Tenta várias vezes, com espera crescente, e troca de modelo se o principal estiver congestionado */
 /* Etapa 1: transcrever a fala com a IA própria para isso (gemini-*-transcribe); reserva: Hydrogen. */
-async function transcrever(parte){
+async function transcrever(parte,mostrar=true){
   await modelosParaTentar();
   const lista=[...(reservaCache||[]).filter(m=>/transcri/i.test(m)),'gemini-3.5-transcribe',MODELO_PADRAO].filter((m,i,a)=>a.indexOf(m)===i);
   let ultimo;
   for(const modelo of lista){
     const ini=Date.now();
-    const tic=setInterval(()=>etapaTxt(`Transcrevendo a fala… ${Math.round((Date.now()-ini)/1000)}s`),1000);
+    const tic=mostrar?setInterval(()=>etapaTxt(`Transcrevendo a fala… ${Math.round((Date.now()-ini)/1000)}s`),1000):null;
     try{
       const r=await buscar(urlIA(`/v1beta/models/${encodeURIComponent(modelo)}:generateContent`),{method:'POST',headers:hdr({'Content-Type':'application/json'}),
         body:JSON.stringify({contents:[{parts:[parte,{text:'Transcreva fielmente, em português do Brasil, tudo o que é falado neste áudio de um mecânico de automóveis. Responda somente com a transcrição.'}]}],generationConfig:{temperature:0,...(/transcri/i.test(modelo)?{}:modoRapido(modelo))}})},40000);
@@ -415,7 +427,7 @@ async function transcrever(parte){
       if(txt.length<3)throw new ErroIA('Não deu para entender a fala do mecânico. Grave de novo, falando perto do celular.');
       return {texto:txt,modelo,seg:Math.round((Date.now()-ini)/1000)};
     }catch(e){ultimo=e;if(e instanceof ErroIA&&/entender a fala/.test(e.message))throw e}
-    finally{clearInterval(tic)}
+    finally{if(tic)clearInterval(tic)}
   }
   throw ultimo||new ErroIA('Não deu para transcrever a fala.',{repetir:true});
 }
@@ -423,7 +435,7 @@ async function transcrever(parte){
 /* Estratégia rápida: 1ª rodada passa por todas as IAs disponíveis SEM esperar (a que funcionou da última vez vem primeiro);
    só se todas falharem, 2ª rodada com uma pausa. Modelo inexistente (404) é esquecido. */
 async function gerarComInsistencia(parte,v){
-  const tmo=parte.text?30000:45000;
+  const tmo=(Array.isArray(parte)?parte[0]:parte).text?30000:45000;
   let modelos=(await modelosParaTentar()).filter(m=>!/transcri/i.test(m));
   const ok=S.get('modeloOk2','');
   if(ok&&modelos.includes(ok))modelos=[ok,...modelos.filter(m=>m!==ok)];
@@ -497,57 +509,74 @@ async function extrairAudio(f){
   return new Blob([dv],{type:'audio/wav'});
 }
 
-let enviado=null; // reaproveita o que já foi preparado/enviado se for tentar de novo
+/* Vários vídeos no mesmo orçamento: cada um vira áudio, cada fala é transcrita (em paralelo) e o orçamento sai de todas juntas.
+   O que já foi preparado/transcrito fica guardado por vídeo (tocar de novo não refaz). */
+const preparo=new WeakMap();
+async function prepararParte(vid,n,tot,ctxAudio){
+  const c=preparo.get(vid);
+  if(c&&Date.now()-c.quando<40*60000)return c;
+  const pre=tot>1?`Vídeo ${n}: `:'';
+  let parte;
+  try{
+    const audio=await extrairAudio(vid);
+    parte={inline_data:{mime_type:'audio/wav',data:await b64(audio)}};
+  }catch(e){
+    if(e instanceof ErroIA)throw new ErroIA(pre+e.message);
+    // reserva: manda o próprio vídeo (reduzido se for grande)
+    if(ctxAudio&&vid.size>14*1048576){try{await ctxAudio.resume();vid=await reduzirVideo(vid,ctxAudio,pc=>etapaTxt(`${pre}deixando o vídeo mais leve (${pc}%)`))}catch(e2){}}
+    const mime=vid.type||'video/mp4';
+    if(vid.size<=14*1048576)parte={inline_data:{mime_type:mime,data:await b64(vid)}};
+    else{
+      etapaTxt(`${pre}enviando o vídeo (${(vid.size/1048576).toFixed(0)} MB)`);
+      for(let t=0;;t++){try{parte=await enviarArquivo(vid,mime);break}catch(e3){if(t>=2||!e3.repetir)throw e3;etapaTxt('Conexão falhou, enviando de novo…');await espera(4000)}}
+    }
+  }
+  const r={parte,quando:Date.now()};preparo.set(videos[n-1],r);return r;
+}
+
 async function analisar(){
   if(!cfg.key){toast('Coloque o código da oficina em ⚙️');return $('dCfg').showModal()}
-  const v=veicAtual();if(!v||!video)return;
+  const v=veicAtual();if(!v||!videos.length)return;
   if(!navigator.onLine){toast('Sem internet no aparelho');return}
   etapas.length=0;$('bAnalisar').disabled=true;
+  const tot=videos.length;
   // reserva (caso o celular não consiga tirar o áudio): precisa ser criado já no toque do botão
   let ctxAudio=null;
-  if(video.size>14*1048576&&!(enviado&&enviado.video===video)&&tipoGravacao()!==null){try{ctxAudio=new (window.AudioContext||window.webkitAudioContext)();ctxAudio.suspend()}catch(e){}}
+  if(videos.some(x=>x.size>14*1048576&&!preparo.get(x))&&tipoGravacao()!==null){try{ctxAudio=new (window.AudioContext||window.webkitAudioContext)();ctxAudio.suspend()}catch(e){}}
   try{
-    let parte;
-    if(enviado&&enviado.video===video&&Date.now()-enviado.quando<40*60000){parte=enviado.parte;etapa('Áudio já preparado')}
-    else{
-      etapa('Separando a fala do mecânico');
-      try{
-        const audio=await extrairAudio(video);
-        parte={inline_data:{mime_type:'audio/wav',data:await b64(audio)}};
-        etapaTxt(`Fala separada (${(audio.size/1048576).toFixed(1)} MB em vez de ${(video.size/1048576).toFixed(0)} MB)`);
-      }catch(e){
-        if(e instanceof ErroIA)throw e;
-        // reserva: manda o vídeo (reduzido se for grande)
-        if(ctxAudio){
-          etapaTxt('Deixando o vídeo mais leve (0%)');
-          try{await ctxAudio.resume();const leve=await reduzirVideo(video,ctxAudio,pc=>etapaTxt(`Deixando o vídeo mais leve (${pc}%)`));pegarVideoSilencioso(leve)}catch(e2){}
-        }
-        const mime=video.type||'video/mp4';
-        if(video.size<=14*1048576){etapaTxt('Preparando o vídeo');parte={inline_data:{mime_type:mime,data:await b64(video)}}}
-        else{
-          etapaTxt('Enviando o vídeo ('+(video.size/1048576).toFixed(0)+' MB)');
-          for(let t=0;;t++){try{parte=await enviarArquivo(video,mime);break}catch(e3){if(t>=2||!e3.repetir)throw e3;etapaTxt('Conexão falhou, enviando o vídeo de novo…');await espera(4000)}}
-        }
-      }
-      enviado={video,parte,quando:Date.now()};
-    }
-    etapa('A IA está ouvindo o mecânico');
+    etapa(tot>1?`Separando a fala dos ${tot} vídeos`:'Separando a fala do mecânico');
+    const preps=[];
+    for(let i=0;i<tot;i++)preps.push(await prepararParte(videos[i],i+1,tot,ctxAudio));
+    const mbV=videos.reduce((s,x)=>s+x.size,0)/1048576;
+    const mbA=preps.reduce((s,p)=>s+(p.parte.inline_data?p.parte.inline_data.data.length*0.75:0),0)/1048576;
+    etapaTxt(`Fala separada (${mbA.toFixed(1)} MB em vez de ${mbV.toFixed(0)} MB)`);
+
+    etapa(tot>1?`Transcrevendo as ${tot} falas…`:'Transcrevendo a fala…');
+    const ini=Date.now();
+    const ticTot=tot>1?setInterval(()=>etapaTxt(`Transcrevendo as ${tot} falas… ${Math.round((Date.now()-ini)/1000)}s`),1000):null;
+    let falhou=false;
+    try{
+      await Promise.all(preps.map(async(p,i)=>{
+        if(p.tr)return;
+        const ehAudio=p.parte.inline_data&&/^audio/.test(p.parte.inline_data.mime_type);
+        if(!ehAudio){falhou=true;return}
+        try{p.tr=await transcrever(p.parte,tot===1)}
+        catch(e){if(e instanceof ErroIA&&/entender a fala/.test(e.message))throw new ErroIA((tot>1?`Vídeo ${i+1}: `:'')+e.message);falhou=true}
+      }));
+    }finally{if(ticTot)clearInterval(ticTot)}
+
     let res;
-    if(parte.inline_data&&/^audio/.test(parte.inline_data.mime_type)){
-      etapaTxt('Transcrevendo a fala…');
-      let tr=null;
-      try{tr=enviado&&enviado.tr||await transcrever(parte);enviado.tr=tr}
-      catch(e){if(e instanceof ErroIA&&/entender a fala/.test(e.message))throw e}
-      if(tr){
-        etapaTxt(`Fala transcrita em ${tr.seg}s`);
-        etapa('Montando o orçamento');
-        res=await gerarComInsistencia({text:'Fala do mecânico (transcrição do áudio):\n"""\n'+tr.texto+'\n"""'},v);
-        res.transcricao=tr.texto;res._seg+=tr.seg;
-      }else{
-        etapaTxt('A IA está ouvindo o mecânico'); // reserva: áudio direto
-        res=await gerarComInsistencia(parte,v);
-      }
-    }else res=await gerarComInsistencia(parte,v);
+    const seg=Math.round((Date.now()-ini)/1000);
+    if(!falhou){
+      etapaTxt(tot>1?`${tot} falas transcritas em ${seg}s`:`Fala transcrita em ${seg}s`);
+      etapa('Montando o orçamento');
+      const texto=tot>1?preps.map((p,i)=>`[Vídeo ${i+1}]\n${p.tr.texto}`).join('\n\n'):preps[0].tr.texto;
+      res=await gerarComInsistencia({text:`Fala do mecânico (transcrição do áudio${tot>1?` de ${tot} vídeos do mesmo carro; junte tudo num orçamento só, sem repetir itens`:''}):\n"""\n${texto}\n"""`},v);
+      res.transcricao=texto;res._seg+=seg;
+    }else{
+      etapaTxt('A IA está ouvindo o mecânico'); // reserva: manda os áudios/vídeos direto
+      res=await gerarComInsistencia(preps.map(p=>p.parte),v);
+    }
     etapa(`Orçamento montado em ${res._seg}s (${res._modelo})`);etapa('Confira os itens e os preços abaixo','ok');
     montar(res,v);
   }catch(e){etapa(e instanceof ErroIA?e.message:'Algo deu errado: '+(e.message||e)+'. Toque em "Montar orçamento com IA" de novo.','err')}
@@ -623,10 +652,10 @@ const foneWa=f=>{let d=String(f||'').replace(/\D/g,'');if(d.length===10||d.lengt
 async function copiar(){try{await navigator.clipboard.writeText(texto());return true}catch(e){return false}}
 async function envVideo(){
   if(!atual)return;salvar(false);
-  const t=texto(),f=video&&new File([video],`orcamento-${atual.num}.mp4`,{type:video.type||'video/mp4'});
-  if(f&&navigator.canShare&&navigator.canShare({files:[f]})){
+  const t=texto(),fs=videos.map((x,i)=>new File([x],`orcamento-${atual.num}${videos.length>1?'-'+(i+1):''}.${/webm/.test(x.type)?'webm':'mp4'}`,{type:x.type||'video/mp4'}));
+  if(fs.length&&navigator.canShare&&navigator.canShare({files:fs})){
     await copiar();
-    try{await navigator.share({files:[f],text:t});toast('Se o texto não aparecer na legenda, é só colar (já está copiado).')}
+    try{await navigator.share({files:fs,text:t});toast('Se o texto não aparecer na legenda, é só colar (já está copiado).')}
     catch(e){if(e.name!=='AbortError')toast('Não deu para compartilhar: '+e.message)}
   }else{toast('Este aparelho não envia vídeo direto. Abrindo só o texto.');envTexto()}
 }
@@ -685,8 +714,9 @@ $('selVeic').onchange=mostrarVeic;
 $('bNovoVeic').onclick=()=>abrirVeic(null);
 $('bEditVeic').onclick=()=>abrirVeic(veicAtual());
 $('bVeicOk').onclick=salvarVeic;$('bVeicCanc').onclick=()=>$('dVeic').close();
-$('bTestarIA').onclick=testarIAs;$('bGravar').onclick=abrirCamera;$('camX').onclick=fecharCamera;$('camRec').onclick=alternarGravacao;$('bGaleria').onclick=()=>$('fGaleria').click();
-$('fGravar').onchange=e=>pegarVideo(e.target.files[0]);$('fGaleria').onchange=e=>pegarVideo(e.target.files[0]);
+$('vidInfo').onclick=e=>{const b=e.target.closest('button');if(!b)return;const i=+b.dataset.i;if(b.classList.contains('vdel')){videos.splice(i,1);mostrarVideos();podeAnalisar()}else mostrarVideos(i)};
+$('bTestarIA').onclick=testarIAs;$('bNovoOrc').onclick=novoOrcamento;$('bGravar').onclick=abrirCamera;$('camX').onclick=fecharCamera;$('camRec').onclick=alternarGravacao;$('bGaleria').onclick=()=>$('fGaleria').click();
+$('fGravar').onchange=e=>{pegarVideo(e.target.files[0]);e.target.value=''};$('fGaleria').onchange=e=>{[...e.target.files].forEach(pegarVideo);e.target.value=''};
 $('bAnalisar').onclick=analisar;
 $('itens').addEventListener('input',e=>{const el=e.target,k=el.closest('.item')?.dataset.k;if(k==null||!el.dataset.f)return;const i=atual.itens[k];
   if(el.dataset.f==='qtd')i.qtd=num(el.value)||0;else if(el.dataset.f==='valor'){i.valor=num(el.value);el.closest('.item').classList.toggle('semp',!i.valor)}else i[el.dataset.f]=el.value;atualizar()});

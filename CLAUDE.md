@@ -60,6 +60,11 @@ Produto que o Tiago (Novo Varejo) pretende vender para oficinas de Botucatu e re
 - Modelo principal fixo = `MODELO_PADRAO` (o campo antigo `cfg.modelo` não manda mais). Aprendizado renomeado para `orv_modeloOk2` (descarta o 3.7 gravado). Corrigido bug: o reset do aprendizado rodava a cada abertura do app.
 - Se o modelo recusar `responseSchema`/JSON mode (400), repete sem schema.
 
+## Vários vídeos por orçamento (v1.1, 18/11/2026)
+- Pedido do Tiago. Até 6 vídeos (`videos[]`); Galeria aceita vários de uma vez; lista com ▶ (ver) e ✕ (remover); botões viram "Gravar outro" / "+ Da galeria".
+- Cada vídeo → áudio → transcrição em paralelo; o Hydrogen recebe "[Vídeo 1] … [Vídeo 2] …" e junta num orçamento só, sem repetir itens. Reserva: manda todos os áudios/vídeos direto numa chamada.
+- Preparo/transcrição guardados por vídeo (WeakMap `preparo`, 40 min). WhatsApp: compartilha todos os vídeos + texto. Botão "🆕 Começar outro orçamento" limpa os vídeos.
+
 ## Pendências conhecidas
 - Falta o teste real com a chave Gemini (vídeo do HB20 deu 503 na v0.2).
 - Tiago precisa criar a conta Cloudflare e conectar o repo (passo a passo no README).
