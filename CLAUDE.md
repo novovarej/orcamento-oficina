@@ -73,10 +73,13 @@ Produto que o Tiago (Novo Varejo) pretende vender para oficinas de Botucatu e re
 - 1º teste ponta a ponta real (PC, fala do Wikimedia): transcrição 11,5 s ✓; montar levou 29 s porque hydrogen 503, argon/carbon 429, 3.8/3.7 503, até o 3.6-flash responder.
 - Agora a etapa "montar" (só texto) dispara 3 IAs ao mesmo tempo (`Promise.any`) e usa a primeira; se a onda falhar, próximas 3; 2ª rodada após 8 s. A vencedora vai para `orv_modeloOk2` (primeira da próxima vez).
 
+## No ar (18/11/2026)
+- App: https://orcamento-rapido.novo-varej.workers.dev (Cloudflare Workers, deploy automático a cada push no main). Código piloto: PILOTO-GVG4W.
+- Chave Gemini no **Nível 1, plano pré-pago** (R$ 170 de crédito, recarga automática desativada — Tiago quer só pré-pago). Antes disso o projeto ficava em "Pagamento obrigatório/Nível gratuito" por causa de cartão recusado na conta de faturamento.
+- Teste ponta a ponta real no Nível 1 (fala de 2 min): transcrição 5 s + montar 4 s = **~11 s no total** (gemini-3.5-transcribe + gemini-4-hydrogen).
+
 ## Pendências conhecidas
-- Falta o teste real com a chave Gemini (vídeo do HB20 deu 503 na v0.2).
-- Tiago precisa criar a conta Cloudflare e conectar o repo (passo a passo no README).
-- Chave Gemini no plano grátis tem limite baixo e o Google pode usar os dados; para vender, ativar faturamento no AI Studio.
+- Teste com vídeo real do mecânico no celular (HB20/CR-V) na versão 1.3.
 
 ## Regras
 - Interface e textos em português do Brasil; valores em R$.
