@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#1c1f26">
 <title>Orçamento por Vídeo</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1C2128">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Orçamento">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
 :root{--bg:#f2f3f5;--card:#fff;--ink:#1c1f26;--mut:#6b7280;--line:#e2e5ea;--pri:#f26b1d;--ok:#1a7f37;--wa:#1fae55;--warn:#c62828;--amb:#b26a00}
 *{box-sizing:border-box;min-width:0}
@@ -142,7 +148,7 @@ dialog h3{margin:0 0 6px}
   <label>Endereço</label><input id="cEnd">
   <label>Próximo nº de orçamento</label><input id="cNum" inputmode="numeric">
   <label>Código da oficina</label><input id="cKey" autocomplete="off" autocapitalize="characters" placeholder="ex.: OFICINA-ZE-4821">
-  <div class="mut">Fornecido pela Zonta IA · versão 1.6</div>
+  <div class="mut">Fornecido pela Zonta IA · versão 1.7</div>
   <button class="btn" id="bTestarIA" type="button">🔎 Testar IAs (velocidade)</button>
   <div id="testeIA" class="mut" style="white-space:pre-line;margin-top:6px"></div>
   <label>Modelo da IA</label><input id="cModelo">
@@ -858,6 +864,7 @@ $('bCfg').onclick=abrirCfg;$('bCfgOk').onclick=salvarCfg;$('bCfgCanc').onclick=(
 
 renderVeics();checarCfg();
 }
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script>
 </body>
 </html>

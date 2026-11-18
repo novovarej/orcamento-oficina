@@ -87,6 +87,11 @@ Produto que o Tiago (Novo Varejo) pretende vender para oficinas de Botucatu e re
 - O campo da tabela aceita colar do Excel (TAB) e "descrição 100,00".
 - Item sem preço exato: `sugerirPreco` procura item parecido (Jaccard ≥ 0,6 nas palavras, ignora lado/marca entre parênteses, nunca mistura dianteiro×traseiro nem peça×mão de obra) na tabela e nos orçamentos anteriores (`hist`). Fica amarelo com "💡 Preço sugerido (orçamento nº X…)"; editar o valor tira a marca.
 
+## Ícone e app instalável (v1.7, 18/11/2026)
+- `public/manifest.webmanifest` (nome "Orçamento Rápido", curto "Orçamento", standalone, tema #1C2128, fundo #F26B1D), ícones `icon-192/512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`, `favicon.png` (laranja, câmera escura com play, "R$" branco; gerados com PIL).
+- `public/sw.js` mínimo (sem cache) só para o Chrome permitir "Instalar app"; registrado apenas em https.
+- Quem já tinha salvo o atalho antes precisa apagar e adicionar de novo para pegar o ícone.
+
 ## Pendências conhecidas
 - Teste com vídeo real do mecânico no celular (HB20/CR-V) na versão 1.3.
 
