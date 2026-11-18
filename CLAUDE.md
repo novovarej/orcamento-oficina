@@ -69,6 +69,10 @@ Produto que o Tiago (Novo Varejo) pretende vender para oficinas de Botucatu e re
 - Teste real no celular: "não deu para entender a fala" com áudio nítido. Causa: `gemini-3.5-transcribe` devolve o texto em `parts[].audioTranscription.text`, não em `parts[].text` (confirmado no PC com áudio real do Wikimedia: 7,6 s para 40 s de fala; às vezes 503).
 - Agora lê os dois campos; tenta a transcrição 2x antes do Hydrogen; vazio de uma IA → tenta a próxima; se tudo falhar, manda o áudio direto para a IA que monta (não trava com erro).
 
+## Corrida entre IAs (v1.3, 18/11/2026)
+- 1º teste ponta a ponta real (PC, fala do Wikimedia): transcrição 11,5 s ✓; montar levou 29 s porque hydrogen 503, argon/carbon 429, 3.8/3.7 503, até o 3.6-flash responder.
+- Agora a etapa "montar" (só texto) dispara 3 IAs ao mesmo tempo (`Promise.any`) e usa a primeira; se a onda falhar, próximas 3; 2ª rodada após 8 s. A vencedora vai para `orv_modeloOk2` (primeira da próxima vez).
+
 ## Pendências conhecidas
 - Falta o teste real com a chave Gemini (vídeo do HB20 deu 503 na v0.2).
 - Tiago precisa criar a conta Cloudflare e conectar o repo (passo a passo no README).

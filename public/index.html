@@ -141,7 +141,7 @@ dialog h3{margin:0 0 6px}
   <label>Endereço</label><input id="cEnd">
   <label>Próximo nº de orçamento</label><input id="cNum" inputmode="numeric">
   <label>Código da oficina</label><input id="cKey" autocomplete="off" autocapitalize="characters" placeholder="ex.: OFICINA-ZE-4821">
-  <div class="mut">Fornecido pela Zonta IA · versão 1.2</div>
+  <div class="mut">Fornecido pela Zonta IA · versão 1.3</div>
   <button class="btn" id="bTestarIA" type="button">🔎 Testar IAs (velocidade)</button>
   <div id="testeIA" class="mut" style="white-space:pre-line;margin-top:6px"></div>
   <label>Modelo da IA</label><input id="cModelo">
@@ -382,20 +382,20 @@ function modoRapido(modelo){
   if(/gemini-(1|2\.0)/i.test(modelo))return {};
   return {thinkingConfig:{thinkingLevel:'low'}};
 }
-async function gerar(modelo,parte,v,tmo=45000,semSchema=false){
+async function gerar(modelo,parte,v,tmo=45000,semSchema=false,mudo=false){
   const partes=Array.isArray(parte)?parte:[parte];
   const soAudio=partes.every(p=>p.text||(p.inline_data&&/^audio/.test(p.inline_data.mime_type)));
   const ini=Date.now();
-  const tic=setInterval(()=>etapaTxt(`A IA está ouvindo o mecânico… ${Math.round((Date.now()-ini)/1000)}s (${modelo})`),1000);
+  const tic=mudo?null:setInterval(()=>etapaTxt(`A IA está ouvindo o mecânico… ${Math.round((Date.now()-ini)/1000)}s (${modelo})`),1000);
   let r,j;
   try{
     r=await buscar(urlIA(`/v1beta/models/${encodeURIComponent(modelo)}:generateContent`),{method:'POST',headers:hdr({'Content-Type':'application/json'}),
       body:JSON.stringify({contents:[{parts:[...partes,{text:prompt(v,soAudio)+(partes.length>1&&!partes[0].text?`\n\nSão ${partes.length} gravações do mesmo carro: junte tudo num orçamento só, sem repetir itens.`:'')}]}],generationConfig:{responseMimeType:'application/json',...(semSchema?{}:{responseSchema:esquema}),temperature:0.2,...modoRapido(modelo)}})},tmo); // travou? passa para outra IA
     j=await r.json().catch(()=>null);
-  }finally{clearInterval(tic)}
+  }finally{if(tic)clearInterval(tic)}
   console.log('[IA]',modelo,r.status,((Date.now()-ini)/1000).toFixed(1)+'s');
-  if(!r.ok&&r.status===400&&!semModoRapido.has(modelo)&&/think/i.test((j&&j.error&&j.error.message)||'')){semModoRapido.add(modelo);return gerar(modelo,parte,v,tmo,semSchema)}
-  if(!r.ok&&r.status===400&&!semSchema&&/schema|JSON mode/i.test((j&&j.error&&j.error.message)||''))return gerar(modelo,parte,v,tmo,true);
+  if(!r.ok&&r.status===400&&!semModoRapido.has(modelo)&&/think/i.test((j&&j.error&&j.error.message)||'')){semModoRapido.add(modelo);return gerar(modelo,parte,v,tmo,semSchema,mudo)}
+  if(!r.ok&&r.status===400&&!semSchema&&/schema|JSON mode/i.test((j&&j.error&&j.error.message)||''))return gerar(modelo,parte,v,tmo,true,mudo);
   if(!r.ok)throw erroGoogle(r.status,j);
   const c=j&&j.candidates&&j.candidates[0];
   if(!c){const b=j&&j.promptFeedback&&j.promptFeedback.blockReason;throw new ErroIA(b?'A IA recusou este vídeo. Grave de novo, mostrando só o carro.':'A IA não respondeu nada.',{repetir:!b})}
@@ -448,6 +448,28 @@ async function gerarComInsistencia(parte,v){
   modelos=modelos.filter(m=>!ruins.has(m));
   if(!modelos.length)modelos=[MODELO_PADRAO];
   let ultimo;
+  // Texto (orçamento a partir da transcrição): corrida — 3 IAs ao mesmo tempo, vale a primeira que responder.
+  if(!Array.isArray(parte)&&parte.text){
+    const ini=Date.now();
+    const tic=setInterval(()=>etapaTxt(`Montando o orçamento… ${Math.round((Date.now()-ini)/1000)}s`),1000);
+    try{
+      for(let rodada=0;rodada<2;rodada++){
+        if(rodada){for(let x=8;x>0;x--){etapaTxt(`IA congestionada. Tentando de novo em ${x}s…`);await espera(1000)}}
+        for(let k=0;k<modelos.length;k+=3){
+          const onda=modelos.slice(k,k+3);
+          try{
+            const res=await Promise.any(onda.map(m=>gerar(m,parte,v,tmo,false,true).then(r=>{return r})));
+            S.set('modeloOk2',res._modelo);res._seg=Math.round((Date.now()-ini)/1000);return res;
+          }catch(agg){
+            const erros=(agg&&agg.errors)||[agg];ultimo=erros[0];
+            const fatal=erros.find(e=>!(e instanceof ErroIA)||(!e.repetir&&!e.trocar));
+            if(fatal&&erros.every(e=>e===fatal||!(e instanceof ErroIA)||(!e.repetir&&!e.trocar)))throw fatal;
+          }
+        }
+      }
+    }finally{clearInterval(tic)}
+    throw new ErroIA((ultimo&&ultimo.message||'A IA não respondeu.')+' Tentamos todas as IAs disponíveis. Espere uns minutos e toque em "Montar orçamento com IA" de novo — o vídeo não se perde.');
+  }
   for(let rodada=0;rodada<2;rodada++){
     if(rodada){for(let x=10;x>0;x--){etapaTxt(`IA congestionada. Tentando de novo em ${x}s…`);await espera(1000)}}
     for(let mi=0;mi<modelos.length;mi++){
